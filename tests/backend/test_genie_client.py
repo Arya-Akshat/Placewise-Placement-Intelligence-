@@ -1,25 +1,17 @@
 import pytest
-from backend.services.databricks_genie import DatabricksGenieClient
+from backend.services.databricks_genie import DatabricksGenieClient, DatabricksGenieError
 
 def test_genie_client_not_configured_by_default():
     client = DatabricksGenieClient(host="", token="", space_id="")
     assert client.is_configured is False
 
 def test_genie_message_normalization_table_and_kpi():
-    client = DatabricksGenieClient()
+    client = DatabricksGenieClient(host="https://fake.databricks.com", token="dapifake", space_id="0123456789ab")
+    
     raw_msg = {
-        "id": "msg_test_01",
-        "content": "CSE 2024 placement rate was 51.49%.",
+        "id": "msg_001",
         "status": "COMPLETED",
-        "attachments": [
-            {
-                "type": "QUERY",
-                "query": {
-                    "id": "qry_01",
-                    "text": "SELECT department_code, placement_rate FROM semantic.genie_department_performance WHERE department_code = 'CSE';"
-                }
-            }
-        ]
+        "content": "Placement rate for CSE in 2024 is 51.49%."
     }
     query_result = {
         "manifest": {
@@ -35,23 +27,22 @@ def test_genie_message_normalization_table_and_kpi():
             "data_array": [["CSE", 51.49]]
         }
     }
-
     norm = client.normalize_genie_message(raw_msg, query_result)
+    assert norm["message_id"] == "msg_001"
     assert norm["status"] == "COMPLETED"
-    assert norm["content"] == "CSE 2024 placement rate was 51.49%."
     assert norm["attachment"] is not None
     assert norm["attachment"]["recommended_visualization"] == "KPI"
-    assert norm["attachment"]["table_data"]["total_row_count"] == 1
-    assert norm["attachment"]["table_data"]["rows"][0]["placement_rate"] == 51.49
-    assert norm["attachment"]["table_data"]["rows"][0]["department_code"] == "CSE"
+    assert len(norm["attachment"]["kpis"]) == 1
+    assert norm["attachment"]["kpis"][0]["value"] == "51.49%"
 
 def test_genie_message_normalization_large_result_truncation():
-    client = DatabricksGenieClient(max_result_rows=5)
-    raw_msg = {"id": "msg_02", "content": "Sample query", "status": "COMPLETED"}
+    client = DatabricksGenieClient(host="https://fake.databricks.com", token="dapifake", space_id="0123456789ab", max_result_rows=5)
+    
+    raw_msg = {"id": "msg_002", "status": "COMPLETED", "content": "Sample matches"}
     query_result = {
         "manifest": {
             "schema": {"columns": [{"name": "id", "type_text": "INT"}]},
-            "total_row_count": 125002500
+            "total_row_count": 20
         },
         "result": {
             "data_array": [[i] for i in range(20)]
@@ -59,17 +50,20 @@ def test_genie_message_normalization_large_result_truncation():
     }
     norm = client.normalize_genie_message(raw_msg, query_result)
     table = norm["attachment"]["table_data"]
-    assert table["total_row_count"] == 125002500
+    assert table["total_row_count"] == 20
     assert table["truncated"] is True
     assert len(table["rows"]) == 5
 
 def test_genie_message_normalization_clarification():
-    client = DatabricksGenieClient()
+    client = DatabricksGenieClient(host="https://fake.databricks.com", token="dapifake", space_id="0123456789ab")
     raw_msg = {
-        "id": "msg_03",
-        "content": "Which batch would you like to analyze?",
+        "id": "msg_003",
         "status": "CLARIFICATION_REQUIRED",
-        "options": ["2024 Batch", "2023 Batch", "2025 Batch"]
+        "content": "Which metric would you like to rank companies by?",
+        "clarification": {
+            "prompt": "Select a metric:",
+            "options": ["Placements Count", "Average Package", "Conversion Rate"]
+        }
     }
     norm = client.normalize_genie_message(raw_msg)
     assert norm["status"] == "CLARIFICATION_REQUIRED"

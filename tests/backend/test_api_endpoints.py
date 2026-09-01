@@ -1,7 +1,6 @@
 import pytest, os, uuid
 from fastapi.testclient import TestClient
 
-# Enable mock backend for testing
 os.environ["USE_MOCK_BACKEND"] = "true"
 from backend.main import app
 
@@ -14,7 +13,8 @@ def test_health_endpoint():
     assert data["status"] == "HEALTHY"
     assert data["backend"] is True
 
-def test_start_and_follow_up_conversation_mock():
+def test_start_and_follow_up_conversation_mock(monkeypatch):
+    monkeypatch.setenv("USE_MOCK_BACKEND", "true")
     # 1. Start conversation
     req_id_1 = f"req_{uuid.uuid4().hex}"
     res1 = client.post("/api/v1/conversations", json={
@@ -40,7 +40,8 @@ def test_start_and_follow_up_conversation_mock():
     assert "48.86%" in msg["content"]
     assert msg["attachment"]["recommended_visualization"] == "BAR"
 
-def test_clarification_endpoint_mock():
+def test_clarification_endpoint_mock(monkeypatch):
+    monkeypatch.setenv("USE_MOCK_BACKEND", "true")
     res = client.post("/api/v1/conversations", json={
         "content": "What is the placement rate?",
         "client_request_id": f"req_{uuid.uuid4().hex}"

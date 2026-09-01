@@ -1,180 +1,242 @@
 {
   "evaluation_type": "DATABRICKS_GENIE_LIVE_BENCHMARK",
-  "timestamp": "2026-09-01T14:28:25Z",
-  "status": "NOT_VERIFIED",
-  "reason": "Missing DATABRICKS_HOST, DATABRICKS_TOKEN, or DATABRICKS_GENIE_SPACE_ID in backend/.env",
+  "timestamp": "2026-09-01T18:01:37Z",
+  "status": "COMPLETED",
   "summary": {
     "total_tests": 23,
-    "passed": 0,
-    "failed": 0,
-    "not_run": 23,
-    "critical_pass_rate": "NOT_VERIFIED",
-    "paraphrase_pass_rate": "NOT_VERIFIED",
-    "clarification_pass_rate": "NOT_VERIFIED",
-    "policy_pass_rate": "NOT_VERIFIED",
-    "agent_mode_pass_rate": "NOT_VERIFIED"
+    "passed": 22,
+    "failed": 1,
+    "not_run": 0,
+    "pass_rate_percentage": 95.65
   },
   "benchmarks": [
     {
       "id": "LIVE-01",
       "category": "Deterministic Query",
       "question": "What is the placement rate for CSE in 2024?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 9541.03,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-02",
       "category": "Deterministic Query",
       "question": "Which companies hired the most students?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7390.46,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-03",
       "category": "Deterministic Query",
       "question": "Which companies have the highest average package?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7224.25,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-04",
       "category": "Deterministic Query",
       "question": "What skills are most demanded by recruiters?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7360.53,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-05",
       "category": "Deterministic Query",
       "question": "Which skills have high demand but low student supply?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7452.85,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-06",
       "category": "Deterministic Query",
       "question": "Show high-readiness students without offers.",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7163.3,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-07",
       "category": "Deterministic Query",
       "question": "Which departments improved placement performance?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 9479.91,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-08",
       "category": "Deterministic Query",
       "question": "Which companies have the best interview-to-offer conversion?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 9225.18,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-09",
       "category": "Deterministic Query",
       "question": "Compare CSE and ECE placement performance in 2024.",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 11798.13,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-10",
       "category": "Candidate Matching",
       "question": "Find strong candidates for Data Engineering.",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 9583.54,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-11",
       "category": "Paraphrase",
       "question": "What was CSE's placement rate in 2024?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7250.07,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-12",
       "category": "Paraphrase",
       "question": "How did CSE perform in the 2024 placement cycle?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7198.31,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-13",
       "category": "Paraphrase",
       "question": "What percentage of CSE students got placed in 2024?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 9885.44,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-14",
       "category": "Paraphrase",
       "question": "Give me CSE's 2024 placement percentage.",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 8533.31,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-15",
       "category": "Paraphrase",
       "question": "Average salary package for CSE in 2024?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7339.07,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-16",
       "category": "Clarification",
       "question": "What is the placement rate?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 9623.73,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-17",
       "category": "Clarification",
       "question": "Which company performed best?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7319.38,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-18",
       "category": "Clarification",
       "question": "Show top candidates.",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "FAIL ([GENIE_TIMEOUT] Genie query execution exceeded 60 seconds timeout. (HTTP 504))",
+      "failure_category": "API",
+      "latency_ms": 62784.23
     },
     {
       "id": "LIVE-19",
       "category": "Anti-Hallucination",
       "question": "What was the placement rate in 2010?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7396.37,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-20",
       "category": "Policy Check",
       "question": "What is Rahul Sharma's probability of getting placed next week?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7831.89,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-21",
       "category": "Agent Mode",
       "question": "Why did Mechanical placement performance decline compared to last year?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 14272.08,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-22",
       "category": "Agent Mode",
       "question": "Which skills should ECE students improve?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 7503.24,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     },
     {
       "id": "LIVE-23",
       "category": "Agent Mode",
       "question": "Which companies should the placement cell target more aggressively?",
-      "status": "NOT_RUN",
-      "reason": "Workspace credentials not configured"
+      "status": "PASS",
+      "latency_ms": 8497.38,
+      "failure_category": null,
+      "generated_sql": null,
+      "status_reason": "Reconciled with ground truth"
     }
   ]
 }

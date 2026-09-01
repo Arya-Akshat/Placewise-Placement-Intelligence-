@@ -244,7 +244,7 @@ async def start_conversation(
 
     # Route to Databricks Genie or Mock Fallback
     use_mock = os.environ.get("USE_MOCK_BACKEND", "").lower() == "true"
-    if genie_client.is_configured:
+    if not use_mock and genie_client.is_configured:
         try:
             logger.info(f"Starting Databricks Genie conversation for space '{genie_client.space_id}'...")
             raw_start = genie_client.start_conversation(req.content)
@@ -321,7 +321,7 @@ async def send_message(
         use_mock = os.environ.get("USE_MOCK_BACKEND", "").lower() == "true"
         genie_cid = conv.get("genie_conversation_id")
 
-        if genie_client.is_configured:
+        if not use_mock and genie_client.is_configured:
             try:
                 if not genie_cid:
                     # Start new Genie session if mapping was missing

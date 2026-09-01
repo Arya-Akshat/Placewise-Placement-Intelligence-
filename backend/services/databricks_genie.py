@@ -10,7 +10,6 @@ from typing import Dict, Any, Optional, Tuple, List
 import requests
 from dotenv import load_dotenv
 
-# Automatically load environment variables from backend/.env
 load_dotenv(os.path.join(os.path.dirname(__file__), "../.env"))
 
 logger = logging.getLogger("DatabricksGenieClient")
@@ -28,18 +27,19 @@ class DatabricksGenieClient:
         host: Optional[str] = None,
         token: Optional[str] = None,
         space_id: Optional[str] = None,
-        timeout_seconds: int = 30,
-        agent_timeout_seconds: int = 90,
-        poll_interval: float = 1.0,
-        max_result_rows: int = 10000
+        timeout_seconds: Optional[int] = None,
+        agent_timeout_seconds: Optional[int] = None,
+        poll_interval: Optional[float] = None,
+        max_result_rows: Optional[int] = None
     ):
-        self.host = (host or os.environ.get("DATABRICKS_HOST", "")).strip().rstrip("/")
-        self.token = (token or os.environ.get("DATABRICKS_TOKEN", "")).strip()
-        self.space_id = (space_id or os.environ.get("DATABRICKS_GENIE_SPACE_ID", "")).strip()
-        self.timeout_seconds = int(os.environ.get("GENIE_TIMEOUT_SECONDS", timeout_seconds))
-        self.agent_timeout_seconds = int(os.environ.get("GENIE_AGENT_TIMEOUT_SECONDS", agent_timeout_seconds))
-        self.poll_interval = float(os.environ.get("GENIE_POLL_INTERVAL_SECONDS", poll_interval))
-        self.max_result_rows = int(os.environ.get("GENIE_MAX_RESULT_ROWS", max_result_rows))
+        self.host = (host if host is not None else os.environ.get("DATABRICKS_HOST", "")).strip().rstrip("/")
+        self.token = (token if token is not None else os.environ.get("DATABRICKS_TOKEN", "")).strip()
+        self.space_id = (space_id if space_id is not None else os.environ.get("DATABRICKS_GENIE_SPACE_ID", "")).strip()
+        
+        self.timeout_seconds = timeout_seconds if timeout_seconds is not None else int(os.environ.get("GENIE_TIMEOUT_SECONDS", 60))
+        self.agent_timeout_seconds = agent_timeout_seconds if agent_timeout_seconds is not None else int(os.environ.get("GENIE_AGENT_TIMEOUT_SECONDS", 120))
+        self.poll_interval = poll_interval if poll_interval is not None else float(os.environ.get("GENIE_POLL_INTERVAL_SECONDS", 1.0))
+        self.max_result_rows = max_result_rows if max_result_rows is not None else int(os.environ.get("GENIE_MAX_RESULT_ROWS", 10000))
 
     @property
     def is_configured(self) -> bool:
@@ -223,7 +223,16 @@ class DatabricksGenieClient:
     ) -> Dict[str, Any]:
         msg_id = custom_msg_id or raw_msg.get("message_id") or raw_msg.get("id") or f"msg_{int(time.time()*1000)}"
         status = raw_msg.get("status", "COMPLETED").upper()
+        
+        # Extract assistant text answer
         content = raw_msg.get("content") or raw_msg.get("text") or ""
+        attachments = raw_msg.get("attachments") or []
+        for a in attachments:
+            text_obj = a.get("text")
+            if text_obj and text_obj.get("purpose") == "TEXT_ATTACHMENT_PURPOSE_ANSWER":
+                content = text_obj.get("content", content)
+                break
+
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
         # Check for clarification request
@@ -260,7 +269,6 @@ class DatabricksGenieClient:
 
         # Check for Query attachments
         attachment_payload = None
-        attachments = raw_msg.get("attachments") or []
         query_att = None
         for a in attachments:
             if a.get("type") == "QUERY" or "query" in a:
@@ -334,6 +342,13 @@ class DatabricksGenieClient:
                 "kpis": kpis if kpis else None
             }
 
+        # Follow up suggestions
+        suggestions = []
+        for a in attachments:
+            sq = a.get("suggested_questions")
+            if sq and "questions" in sq:
+                suggestions.extend(sq["questions"])
+
         return {
             "message_id": msg_id,
             "role": "assistant",
@@ -343,5 +358,5 @@ class DatabricksGenieClient:
             "attachment": attachment_payload,
             "clarification": clarification_payload,
             "agent_analysis": agent_analysis,
-            "follow_up_suggestions": raw_msg.get("follow_up_suggestions")
+            "follow_up_suggestions": suggestions if suggestions else raw_msg.get("follow_up_suggestions")
         }
