@@ -1,0 +1,1 @@
+CREATE OR REPLACE TABLE placewise.gold.role_demand_profile AS SELECT 'stub' as stub_col;\n

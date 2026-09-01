@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABRICKS_HOST=${DATABRICKS_HOST}
+      - DATABRICKS_TOKEN=${DATABRICKS_TOKEN}
+      - DATABRICKS_GENIE_SPACE_ID=${DATABRICKS_GENIE_SPACE_ID}
+      - ALLOWED_ORIGINS=http://localhost:3000
+      - USE_MOCK_BACKEND=${USE_MOCK_BACKEND:-false}
+    volumes:
+      - ./data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_USE_MOCK_API=false
+    depends_on:
+      - backend

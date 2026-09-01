@@ -1,0 +1,3 @@
+-- Refresh logic for student_job_skill_match
+-- Usually implemented via dbt or CREATE OR REPLACE TABLE in Databricks tasks.
+-- See sql/ddl/gold/gold_student_job_skill_match.sql for full definition.\n

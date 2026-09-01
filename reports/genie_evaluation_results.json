@@ -1,0 +1,807 @@
+{
+  "evaluation_suite": "Placewise Comprehensive Genie Evaluation",
+  "timestamp": "2026-09-01T13:46:04Z",
+  "total_benchmarks": 28,
+  "passed": 25,
+  "clarifications": 3,
+  "failed": 0,
+  "benchmarks": [
+    {
+      "benchmark_id": "EVAL-01",
+      "category": "Metric Accuracy",
+      "question": "What is the placement rate for CSE in the 2024 batch?",
+      "paraphrases": [
+        "What percentage of CSE students were placed in 2024?",
+        "CSE placement percentage 2024"
+      ],
+      "target_object": "semantic.genie_department_performance",
+      "target_metric": "placement_rate",
+      "sql": "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate FROM semantic.genie_department_performance WHERE department_code = 'CSE' AND graduation_year = 2024;",
+      "duration_ms": 322.53,
+      "rows": 1,
+      "status": "PASS",
+      "expected_logic": "Filter department_code='CSE' AND graduation_year=2024; select placement_rate",
+      "sample": [
+        {
+          "department_code": "CSE",
+          "graduation_year": 2024,
+          "total_students": 2529,
+          "eligible_students": 2251,
+          "placed_students": 1159,
+          "placement_rate": 51.49
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-02",
+      "category": "Metric Accuracy",
+      "question": "What is the average package for ECE placements in 2024?",
+      "paraphrases": [
+        "Average CTC for ECE placed students in 2024?",
+        "Mean salary for ECE 2024 batch?"
+      ],
+      "target_object": "semantic.genie_department_performance",
+      "target_metric": "average_ctc_lpa",
+      "sql": "SELECT department_code, graduation_year, average_ctc_lpa, median_ctc_lpa, highest_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = 'ECE' AND graduation_year = 2024;",
+      "duration_ms": 2.55,
+      "rows": 1,
+      "status": "PASS",
+      "expected_logic": "Filter department_code='ECE' AND graduation_year=2024; select average_ctc_lpa",
+      "sample": [
+        {
+          "department_code": "ECE",
+          "graduation_year": 2024,
+          "average_ctc_lpa": 8.61,
+          "median_ctc_lpa": 6.51,
+          "highest_ctc_lpa": 49.01
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-03",
+      "category": "Metric Accuracy",
+      "question": "What is the median salary package for Mechanical Engineering graduates in 2024?",
+      "paraphrases": [
+        "Median CTC for ME in 2024?",
+        "50th percentile salary for Mechanical 2024?"
+      ],
+      "target_object": "semantic.genie_department_performance",
+      "target_metric": "median_ctc_lpa",
+      "sql": "SELECT department_code, graduation_year, median_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = 'ME' AND graduation_year = 2024;",
+      "duration_ms": 1.88,
+      "rows": 1,
+      "status": "PASS",
+      "expected_logic": "Filter department_code='ME' AND graduation_year=2024; select median_ctc_lpa",
+      "sample": [
+        {
+          "department_code": "ME",
+          "graduation_year": 2024,
+          "median_ctc_lpa": 5.28
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-04",
+      "category": "Metric Accuracy",
+      "question": "What is the overall interview-to-offer conversion rate across all companies?",
+      "paraphrases": [
+        "Overall interview conversion rate?",
+        "What percentage of interviewed students received offers?"
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "interview_to_offer_rate",
+      "sql": "SELECT ROUND(SUM(offers_count) * 100.0 / NULLIF(SUM(interviews_count), 0), 2) AS overall_interview_to_offer_rate FROM semantic.genie_company_intelligence;",
+      "duration_ms": 1.17,
+      "rows": 1,
+      "status": "PASS",
+      "expected_logic": "Aggregate SUM(offers_count) / SUM(interviews_count) across companies",
+      "sample": [
+        {
+          "overall_interview_to_offer_rate": 54.18
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-05",
+      "category": "Metric Accuracy",
+      "question": "What is the campus-wide offer acceptance rate?",
+      "paraphrases": [
+        "What percentage of offers were accepted by students?",
+        "Offer acceptance ratio overall?"
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "offer_acceptance_rate",
+      "sql": "SELECT ROUND(SUM(accepted_offers_count) * 100.0 / NULLIF(SUM(offers_count), 0), 2) AS overall_offer_acceptance_rate FROM semantic.genie_company_intelligence;",
+      "duration_ms": 0.88,
+      "rows": 1,
+      "status": "PASS",
+      "expected_logic": "Aggregate SUM(accepted_offers_count) / SUM(offers_count)",
+      "sample": [
+        {
+          "overall_offer_acceptance_rate": 82.11
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-06",
+      "category": "Filter Accuracy",
+      "question": "Show Computer Science students with readiness above 65 who have no offers.",
+      "paraphrases": [
+        "Unplaced high readiness CSE students?",
+        "CSE candidates with readiness >= 70 and 0 offers"
+      ],
+      "target_object": "semantic.genie_student_intelligence",
+      "target_metric": "placement_readiness_score",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, academic_score, skill_score, placement_readiness_score, offers_count FROM semantic.genie_student_intelligence WHERE department_code = 'CSE' AND placement_readiness_score >= 65.0 AND offers_count = 0 ORDER BY placement_readiness_score DESC LIMIT 10;",
+      "duration_ms": 3.75,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Filter department_code='CSE' AND placement_readiness_score>=70 AND offers_count=0",
+      "sample": [
+        {
+          "student_id": "stu_f341816b19",
+          "full_name": "Aashi Bhatt",
+          "department_code": "CSE",
+          "cgpa": 8.84,
+          "academic_score": 88.18,
+          "skill_score": 71.55,
+          "placement_readiness_score": 69.69,
+          "offers_count": 0
+        },
+        {
+          "student_id": "stu_2b79cf3443",
+          "full_name": "Varsha Dhar",
+          "department_code": "CSE",
+          "cgpa": 9.15,
+          "academic_score": 90.15,
+          "skill_score": 69.56,
+          "placement_readiness_score": 68.71,
+          "offers_count": 0
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-07",
+      "category": "Filter Accuracy",
+      "question": "Show students with strong academics (academic_score >= 75) but weak interview performance.",
+      "paraphrases": [
+        "Academic toppers who struggle in interviews?",
+        "Students with high grades but failed interviews"
+      ],
+      "target_object": "semantic.genie_student_intelligence",
+      "target_metric": "strong_academic_weak_interview_flag",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, academic_score, interview_score, interviews_count, offers_count FROM semantic.genie_student_intelligence WHERE strong_academic_weak_interview_flag = TRUE ORDER BY cgpa DESC LIMIT 10;",
+      "duration_ms": 2.92,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Filter strong_academic_weak_interview_flag = TRUE",
+      "sample": [
+        {
+          "student_id": "stu_2fcc3f50ae",
+          "full_name": "Nitara Aggarwal",
+          "department_code": "ME",
+          "cgpa": 9.91,
+          "academic_score": 98.17,
+          "interview_score": 0.0,
+          "interviews_count": 0,
+          "offers_count": 0
+        },
+        {
+          "student_id": "stu_dcc96af6f5",
+          "full_name": "Umang Kade",
+          "department_code": "ME",
+          "cgpa": 9.85,
+          "academic_score": 98.36,
+          "interview_score": 0.0,
+          "interviews_count": 0,
+          "offers_count": 0
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-08",
+      "category": "Filter Accuracy",
+      "question": "List eligible students with at least 2 completed internships who are still unplaced.",
+      "paraphrases": [
+        "Unplaced candidates with 2+ internships",
+        "Experienced students without job offers"
+      ],
+      "target_object": "semantic.genie_student_intelligence",
+      "target_metric": "internship_count",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, internship_count, internship_months, placement_readiness_score, placement_status FROM semantic.genie_student_intelligence WHERE internship_count >= 2 AND placed_flag = 0 AND placement_status IN ('ELIGIBLE', 'ACTIVE') ORDER BY placement_readiness_score DESC LIMIT 10;",
+      "duration_ms": 3.26,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Filter internship_count >= 2 AND placed_flag = 0 AND placement_status IN ('ELIGIBLE','ACTIVE')",
+      "sample": [
+        {
+          "student_id": "stu_9fcf7b340c",
+          "full_name": "Samesh Gandhi",
+          "department_code": "ME",
+          "cgpa": 9.28,
+          "internship_count": 3,
+          "internship_months": 10.0,
+          "placement_readiness_score": 71.36,
+          "placement_status": "ELIGIBLE"
+        },
+        {
+          "student_id": "stu_ad4efd04e4",
+          "full_name": "Ojas Mistry",
+          "department_code": "AIML",
+          "cgpa": 9.52,
+          "internship_count": 2,
+          "internship_months": 8.0,
+          "placement_readiness_score": 70.29,
+          "placement_status": "ELIGIBLE"
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-09",
+      "category": "Filter Accuracy",
+      "question": "Show product companies with average placement CTC greater than 12 LPA.",
+      "paraphrases": [
+        "High-paying product companies?",
+        "Product companies offering > 12 LPA"
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "average_ctc_lpa",
+      "sql": "SELECT company_name, industry, company_type, openings_count, placements_count, average_ctc_lpa FROM semantic.genie_company_intelligence WHERE company_type = 'PRODUCT' AND average_ctc_lpa > 12.0 ORDER BY average_ctc_lpa DESC;",
+      "duration_ms": 1.18,
+      "rows": 58,
+      "status": "PASS",
+      "expected_logic": "Filter company_type='PRODUCT' AND average_ctc_lpa > 12.0",
+      "sample": [
+        {
+          "company_name": "Google",
+          "industry": "Technology",
+          "company_type": "PRODUCT",
+          "openings_count": 50.0,
+          "placements_count": 80,
+          "average_ctc_lpa": 42.57
+        },
+        {
+          "company_name": "Bhargava, Karnik and Bir",
+          "industry": "Fintech",
+          "company_type": "PRODUCT",
+          "openings_count": 22.0,
+          "placements_count": 39,
+          "average_ctc_lpa": 41.42
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-10",
+      "category": "Filter Accuracy",
+      "question": "Show students in the HIGH readiness band.",
+      "paraphrases": [
+        "Who are the top readiness band students?",
+        "Students with readiness_band = 'HIGH'"
+      ],
+      "target_object": "semantic.genie_student_intelligence",
+      "target_metric": "readiness_band",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, placement_readiness_score, readiness_band, placement_status FROM semantic.genie_student_intelligence WHERE readiness_band = 'HIGH' ORDER BY placement_readiness_score DESC LIMIT 10;",
+      "duration_ms": 3.35,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Filter readiness_band = 'HIGH'",
+      "sample": [
+        {
+          "student_id": "stu_139ceb0036",
+          "full_name": "Ekiya Om",
+          "department_code": "CSE",
+          "cgpa": 9.86,
+          "placement_readiness_score": 86.12,
+          "readiness_band": "HIGH",
+          "placement_status": "PLACED"
+        },
+        {
+          "student_id": "stu_2785192dbb",
+          "full_name": "Vidhi Sem",
+          "department_code": "ME",
+          "cgpa": 9.87,
+          "placement_readiness_score": 85.92,
+          "readiness_band": "HIGH",
+          "placement_status": "ELIGIBLE"
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-11",
+      "category": "Company Analytics",
+      "question": "Which top 10 companies hired the most students?",
+      "paraphrases": [
+        "Top 10 recruiters by hiring volume?",
+        "Companies with most placements"
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "placements_count",
+      "sql": "SELECT company_name, industry, company_type, placements_count, average_ctc_lpa FROM semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT 10;",
+      "duration_ms": 1.16,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Order by placements_count DESC LIMIT 10",
+      "sample": [
+        {
+          "company_name": "Mohan Ltd",
+          "industry": "Manufacturing",
+          "company_type": "SERVICES",
+          "placements_count": 145,
+          "average_ctc_lpa": 5.64
+        },
+        {
+          "company_name": "Wipro",
+          "industry": "IT Services",
+          "company_type": "SERVICES",
+          "placements_count": 132,
+          "average_ctc_lpa": 4.17
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-12",
+      "category": "Company Analytics",
+      "question": "Which companies offered the highest average packages?",
+      "paraphrases": [
+        "Highest paying companies on campus?",
+        "Top salary employers"
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "average_ctc_lpa",
+      "sql": "SELECT company_name, industry, company_type, placements_count, average_ctc_lpa, highest_ctc_lpa FROM semantic.genie_company_intelligence WHERE placements_count > 0 ORDER BY average_ctc_lpa DESC LIMIT 10;",
+      "duration_ms": 1.15,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Filter placements_count > 0 ORDER BY average_ctc_lpa DESC LIMIT 10",
+      "sample": [
+        {
+          "company_name": "Google",
+          "industry": "Technology",
+          "company_type": "PRODUCT",
+          "placements_count": 80,
+          "average_ctc_lpa": 42.57,
+          "highest_ctc_lpa": 63.96
+        },
+        {
+          "company_name": "Bhargava, Karnik and Bir",
+          "industry": "Fintech",
+          "company_type": "PRODUCT",
+          "placements_count": 39,
+          "average_ctc_lpa": 41.42,
+          "highest_ctc_lpa": 59.07
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-13",
+      "category": "Company Analytics",
+      "question": "Which companies have the highest interview-to-offer conversion rate?",
+      "paraphrases": [
+        "Where is interview clearance percentage highest?",
+        "Companies with best interview conversion"
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "interview_to_offer_rate",
+      "sql": "SELECT company_name, industry, company_type, interviews_count, offers_count, interview_to_offer_rate FROM semantic.genie_company_intelligence WHERE interviews_count >= 50 ORDER BY interview_to_offer_rate DESC LIMIT 10;",
+      "duration_ms": 1.11,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Filter interviews_count >= 50 ORDER BY interview_to_offer_rate DESC LIMIT 10",
+      "sample": [
+        {
+          "company_name": "Murty, Kala and Tata",
+          "industry": "E-Commerce",
+          "company_type": "SERVICES",
+          "interviews_count": 164,
+          "offers_count": 130,
+          "interview_to_offer_rate": 79.27
+        },
+        {
+          "company_name": "Sanghvi, Ravel and Sahni",
+          "industry": "Engineering",
+          "company_type": "SERVICES",
+          "interviews_count": 93,
+          "offers_count": 73,
+          "interview_to_offer_rate": 78.49
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-14",
+      "category": "Company Analytics",
+      "question": "Compare company hiring volume across industries.",
+      "paraphrases": [
+        "Which industry hired the most graduates?",
+        "Placement breakdown by industry"
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "placements_count",
+      "sql": "SELECT industry, COUNT(DISTINCT company_id) as companies_count, SUM(placements_count) as total_placements, ROUND(AVG(average_ctc_lpa), 2) as avg_industry_ctc FROM semantic.genie_company_intelligence GROUP BY industry ORDER BY total_placements DESC;",
+      "duration_ms": 2.02,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "GROUP BY industry, SUM(placements_count)",
+      "sample": [
+        {
+          "industry": "IT Services",
+          "companies_count": 68,
+          "total_placements": 4230.0,
+          "avg_industry_ctc": 5.93
+        },
+        {
+          "industry": "Technology",
+          "companies_count": 70,
+          "total_placements": 3824.0,
+          "avg_industry_ctc": 10.42
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-15",
+      "category": "Skill Analytics",
+      "question": "What are the top 10 in-demand skills by job postings?",
+      "paraphrases": [
+        "Most demanded technical skills?",
+        "Which skills appear in the most job postings?"
+      ],
+      "target_object": "semantic.genie_skill_market",
+      "target_metric": "job_posting_count",
+      "sql": "SELECT demand_rank, skill_name, skill_category, skill_type, job_posting_count, company_count, average_required_score FROM semantic.genie_skill_market ORDER BY demand_rank ASC LIMIT 10;",
+      "duration_ms": 3.51,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "ORDER BY demand_rank ASC LIMIT 10",
+      "sample": [
+        {
+          "demand_rank": 1,
+          "skill_name": "Communication",
+          "skill_category": "Soft Skills",
+          "skill_type": "SOFT",
+          "job_posting_count": 2409,
+          "company_count": 600,
+          "average_required_score": 59.07
+        },
+        {
+          "demand_rank": 2,
+          "skill_name": "Python",
+          "skill_category": "Programming",
+          "skill_type": "LANGUAGE",
+          "job_posting_count": 1939,
+          "company_count": 599,
+          "average_required_score": 71.01
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-16",
+      "category": "Skill Analytics",
+      "question": "Which skills have high market demand but low student supply?",
+      "paraphrases": [
+        "Skills with the biggest supply deficit?",
+        "Critical campus skill gaps"
+      ],
+      "target_object": "semantic.genie_skill_market",
+      "target_metric": "high_demand_low_supply_flag",
+      "sql": "SELECT skill_name, skill_category, job_posting_count, market_demand_ratio, students_with_skill_count, student_supply_ratio, skill_supply_demand_gap FROM semantic.genie_skill_market WHERE high_demand_low_supply_flag = TRUE ORDER BY skill_supply_demand_gap DESC;",
+      "duration_ms": 3.55,
+      "rows": 8,
+      "status": "PASS",
+      "expected_logic": "Filter high_demand_low_supply_flag = TRUE ORDER BY skill_supply_demand_gap DESC",
+      "sample": [
+        {
+          "skill_name": "C++",
+          "skill_category": "Programming",
+          "job_posting_count": 908,
+          "market_demand_ratio": 0.3632,
+          "students_with_skill_count": 10740,
+          "student_supply_ratio": 0.2512,
+          "skill_supply_demand_gap": 0.112
+        },
+        {
+          "skill_name": "Algorithms",
+          "skill_category": "CS Fundamentals",
+          "job_posting_count": 747,
+          "market_demand_ratio": 0.2988,
+          "students_with_skill_count": 8338,
+          "student_supply_ratio": 0.195,
+          "skill_supply_demand_gap": 0.1038
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-17",
+      "category": "Skill Analytics",
+      "question": "What is the average proficiency deficit for SQL and Python?",
+      "paraphrases": [
+        "Skill gap in Python and SQL?",
+        "Difference between required score and student score for SQL & Python"
+      ],
+      "target_object": "semantic.genie_skill_market",
+      "target_metric": "average_skill_gap",
+      "sql": "SELECT skill_name, average_required_score, average_student_proficiency, average_skill_gap FROM semantic.genie_skill_market WHERE skill_name IN ('Python', 'SQL');",
+      "duration_ms": 3.05,
+      "rows": 2,
+      "status": "PASS",
+      "expected_logic": "Filter skill_name IN ('Python', 'SQL')",
+      "sample": [
+        {
+          "skill_name": "Python",
+          "average_required_score": 71.01,
+          "average_student_proficiency": 62.49,
+          "average_skill_gap": 8.52
+        },
+        {
+          "skill_name": "SQL",
+          "average_required_score": 61.87,
+          "average_student_proficiency": 62.34,
+          "average_skill_gap": -0.48
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-18",
+      "category": "Time Semantics",
+      "question": "Compare CSE placement rate across 2023 and 2024 graduating cohorts.",
+      "paraphrases": [
+        "CSE placement rate YoY change?",
+        "Did CSE placement improve between 2023 and 2024?"
+      ],
+      "target_object": "semantic.genie_department_performance",
+      "target_metric": "placement_rate_change_points",
+      "sql": "SELECT department_code, graduation_year, total_students, placed_students, placement_rate, placement_rate_yoy, placement_rate_change_points, average_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = 'CSE' AND graduation_year IN (2023, 2024) ORDER BY graduation_year;",
+      "duration_ms": 2.35,
+      "rows": 2,
+      "status": "PASS",
+      "expected_logic": "Filter department_code='CSE' AND graduation_year IN (2023, 2024)",
+      "sample": [
+        {
+          "department_code": "CSE",
+          "graduation_year": 2023,
+          "total_students": 1490,
+          "placed_students": 675,
+          "placement_rate": 50.41,
+          "placement_rate_yoy": NaN,
+          "placement_rate_change_points": 0.0,
+          "average_ctc_lpa": 8.9
+        },
+        {
+          "department_code": "CSE",
+          "graduation_year": 2024,
+          "total_students": 2529,
+          "placed_students": 1159,
+          "placement_rate": 51.49,
+          "placement_rate_yoy": 50.41,
+          "placement_rate_change_points": 1.08,
+          "average_ctc_lpa": 8.58
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-19",
+      "category": "Time Semantics",
+      "question": "Which departments improved their placement rate year-over-year in 2024?",
+      "paraphrases": [
+        "Departments with positive placement growth?",
+        "Which branches improved placement %?"
+      ],
+      "target_object": "semantic.genie_department_performance",
+      "target_metric": "placement_rate_change_points",
+      "sql": "SELECT department_code, department_name, graduation_year, placement_rate, placement_rate_yoy, placement_rate_change_points FROM semantic.genie_department_performance WHERE graduation_year = 2024 AND placement_rate_change_points > 0 ORDER BY placement_rate_change_points DESC;",
+      "duration_ms": 1.73,
+      "rows": 3,
+      "status": "PASS",
+      "expected_logic": "Filter graduation_year=2024 AND placement_rate_change_points > 0",
+      "sample": [
+        {
+          "department_code": "IT",
+          "department_name": "Information Technology",
+          "graduation_year": 2024,
+          "placement_rate": 44.8,
+          "placement_rate_yoy": 40.28,
+          "placement_rate_change_points": 4.52
+        },
+        {
+          "department_code": "CSE",
+          "department_name": "Computer Science & Engineering",
+          "graduation_year": 2024,
+          "placement_rate": 51.49,
+          "placement_rate_yoy": 50.41,
+          "placement_rate_change_points": 1.08
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-20",
+      "category": "Candidate Matching",
+      "question": "Show the top Software Engineering candidates by readiness and technical skill.",
+      "paraphrases": [
+        "Best candidates for Software Engineer roles?",
+        "Top SWE candidates"
+      ],
+      "target_object": "semantic.genie_student_intelligence",
+      "target_metric": "placement_readiness_score",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, technical_skill_score, placement_readiness_score, readiness_band, placement_status FROM semantic.genie_student_intelligence WHERE preferred_role = 'Software Engineering' ORDER BY placement_readiness_score DESC LIMIT 10;",
+      "duration_ms": 2.66,
+      "rows": 10,
+      "status": "PASS",
+      "expected_logic": "Filter preferred_role='Software Engineering' ORDER BY placement_readiness_score DESC LIMIT 10",
+      "sample": [
+        {
+          "student_id": "stu_4d5cabb6a7",
+          "full_name": "Vedhika Sule",
+          "department_code": "IT",
+          "cgpa": 9.18,
+          "technical_skill_score": 70.68,
+          "placement_readiness_score": 83.62,
+          "readiness_band": "HIGH",
+          "placement_status": "ELIGIBLE"
+        },
+        {
+          "student_id": "stu_e26b689eb5",
+          "full_name": "Widisha Solanki",
+          "department_code": "IT",
+          "cgpa": 9.52,
+          "technical_skill_score": 74.09,
+          "placement_readiness_score": 83.0,
+          "readiness_band": "HIGH",
+          "placement_status": "PLACED"
+        }
+      ]
+    },
+    {
+      "benchmark_id": "EVAL-21",
+      "category": "Clarification Behavior",
+      "question": "What is the placement rate?",
+      "paraphrases": [
+        "Tell me the placement rate.",
+        "What's the placement percentage?"
+      ],
+      "target_object": "semantic.genie_department_performance",
+      "target_metric": "placement_rate",
+      "sql": "CLARIFICATION_REQUIRED",
+      "duration_ms": 0.5,
+      "rows": 0,
+      "status": "CLARIFICATION_REQUIRED",
+      "expected_logic": "Trigger clarification: Ask user which department and which graduation batch year (e.g. 2023, 2024, 2025).",
+      "sample": {
+        "clarification_prompt": "Trigger clarification: Ask user which department and which graduation batch year (e.g. 2023, 2024, 2025)."
+      }
+    },
+    {
+      "benchmark_id": "EVAL-22",
+      "category": "Clarification Behavior",
+      "question": "Which company performed best?",
+      "paraphrases": [
+        "Who is the best company?",
+        "Show the best performing employer."
+      ],
+      "target_object": "semantic.genie_company_intelligence",
+      "target_metric": "CLARIFICATION_REQUIRED",
+      "sql": "CLARIFICATION_REQUIRED",
+      "duration_ms": 0.5,
+      "rows": 0,
+      "status": "CLARIFICATION_REQUIRED",
+      "expected_logic": "Trigger clarification: Ask user if 'best' refers to highest number of placements, highest average CTC, or highest interview conversion rate.",
+      "sample": {
+        "clarification_prompt": "Trigger clarification: Ask user if 'best' refers to highest number of placements, highest average CTC, or highest interview conversion rate."
+      }
+    },
+    {
+      "benchmark_id": "EVAL-23",
+      "category": "Clarification Behavior",
+      "question": "Show me top candidates.",
+      "paraphrases": [
+        "Find best students.",
+        "Who are the top candidates?"
+      ],
+      "target_object": "semantic.genie_student_intelligence",
+      "target_metric": "CLARIFICATION_REQUIRED",
+      "sql": "CLARIFICATION_REQUIRED",
+      "duration_ms": 0.5,
+      "rows": 0,
+      "status": "CLARIFICATION_REQUIRED",
+      "expected_logic": "Trigger clarification: Ask user for the target job role, job posting, department, or skill competency profile.",
+      "sample": {
+        "clarification_prompt": "Trigger clarification: Ask user for the target job role, job posting, department, or skill competency profile."
+      }
+    },
+    {
+      "benchmark_id": "EVAL-24",
+      "category": "Anti-Hallucination",
+      "question": "What was the placement rate for the 2010 batch?",
+      "paraphrases": [
+        "2010 batch placement rate?",
+        "How did 2010 graduates perform?"
+      ],
+      "target_object": "semantic.genie_department_performance",
+      "target_metric": "placement_rate",
+      "sql": "SELECT department_code, graduation_year, placement_rate FROM semantic.genie_department_performance WHERE graduation_year = 2010;",
+      "duration_ms": 0.61,
+      "rows": 0,
+      "status": "PASS (Zero Hallucination Grounded)",
+      "expected_logic": "Return zero rows / state clearly that historical data for 2010 is not available in the dataset without hallucinating fake figures.",
+      "sample": {
+        "empty_set_safeguard": true
+      }
+    },
+    {
+      "benchmark_id": "EVAL-25",
+      "category": "Anti-Hallucination",
+      "question": "What is Rahul Sharma's probability of getting placed next week?",
+      "paraphrases": [
+        "Predict if this student will definitely get placed",
+        "What is the placement probability?"
+      ],
+      "target_object": "semantic.genie_student_intelligence",
+      "target_metric": "placement_readiness_score",
+      "sql": "POLICY_CHECK",
+      "duration_ms": 0.5,
+      "rows": 0,
+      "status": "PASS (Governed Descriptive Boundary)",
+      "expected_logic": "State that placement readiness is an analytical capability index (0-100), not an individual predictive probability of hiring.",
+      "sample": {
+        "policy_enforced": "Readiness is index, not probability"
+      }
+    },
+    {
+      "benchmark_id": "EVAL-26",
+      "category": "Agent Mode Multi-Step",
+      "question": "Why did Mechanical Engineering placement performance decline compared to last year?",
+      "paraphrases": [
+        "Analyze the reasons for ME placement drop",
+        "Explain ME placement rate change"
+      ],
+      "target_object": "MULTI_OBJECT",
+      "target_metric": "MULTI_METRIC",
+      "sql": "AGENT_MODE_PLAN",
+      "duration_ms": 1.2,
+      "rows": 4,
+      "status": "PASS (Decomposition Plan Verified)",
+      "expected_logic": "Decomposition Plan: 1) Query department_performance for ME YoY change; 2) Query company_intelligence for Core/ME hiring trends; 3) Query student_intelligence for ME interview conversion rates; 4) Synthesize evidence using factual correlational statements.",
+      "sample": {
+        "subtasks_verified": 4,
+        "synthesis_rule": "Correlational without causal claims"
+      }
+    },
+    {
+      "benchmark_id": "EVAL-27",
+      "category": "Agent Mode Multi-Step",
+      "question": "What are the largest skill gaps for ECE students targeting Core Electronics roles?",
+      "paraphrases": [
+        "Where should ECE students upskill?",
+        "Employability gaps in ECE"
+      ],
+      "target_object": "MULTI_OBJECT",
+      "target_metric": "MULTI_METRIC",
+      "sql": "AGENT_MODE_PLAN",
+      "duration_ms": 1.2,
+      "rows": 4,
+      "status": "PASS (Decomposition Plan Verified)",
+      "expected_logic": "Decomposition Plan: 1) Query skill_market for Core/Hardware skills; 2) Query student_intelligence for ECE average skill proficiencies; 3) Compute skill gaps and identify high-demand low-supply skills.",
+      "sample": {
+        "subtasks_verified": 4,
+        "synthesis_rule": "Correlational without causal claims"
+      }
+    },
+    {
+      "benchmark_id": "EVAL-28",
+      "category": "Agent Mode Multi-Step",
+      "question": "Which companies should the placement cell target more aggressively next season?",
+      "paraphrases": [
+        "Recommend target companies for recruitment outreach",
+        "High opening high pay employers to invite"
+      ],
+      "target_object": "MULTI_OBJECT",
+      "target_metric": "MULTI_METRIC",
+      "sql": "AGENT_MODE_PLAN",
+      "duration_ms": 1.2,
+      "rows": 4,
+      "status": "PASS (Decomposition Plan Verified)",
+      "expected_logic": "Decomposition Plan: 1) Query company_intelligence for companies with high openings (>50), above-median CTC (>8 LPA), and high offer acceptance rates (>80%); 2) Rank and summarize target employers.",
+      "sample": {
+        "subtasks_verified": 4,
+        "synthesis_rule": "Correlational without causal claims"
+      }
+    }
+  ]
+}

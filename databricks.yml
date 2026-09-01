@@ -1,0 +1,23 @@
+bundle:
+  name: placewise_placement_intelligence
+
+workspace:
+  host: ${var.databricks_host}
+  root_path: /Workspace/Placewise/genie
+
+variables:
+  databricks_host:
+    description: "Databricks Workspace URL"
+    default: "https://<workspace-instance>.cloud.databricks.com"
+  warehouse_id:
+    description: "SQL Warehouse ID for Genie"
+    default: "0000000000000000"
+
+resources:
+  jobs:
+    deploy_placewise_semantic:
+      name: "Deploy Placewise Semantic Views and Genie Metadata"
+      tasks:
+        - task_key: run_deploy_script
+          spark_python_task:
+            python_file: scripts/deploy_genie_agent.py

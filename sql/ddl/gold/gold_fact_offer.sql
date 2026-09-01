@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS placewise.gold.fact_offer (id STRING, created_at TIMESTAMP) USING DELTA COMMENT 'Fact: offer';\n

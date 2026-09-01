@@ -1,0 +1,19 @@
+profiles:
+  small_demo:
+    seed: 42
+    students: 1000
+    companies: 100
+    job_postings: 300
+    description: "Small demo dataset for development"
+  medium_demo:
+    seed: 42
+    students: 10000
+    companies: 500
+    job_postings: 2000
+    description: "Medium demo dataset for testing"
+  large_demo:
+    seed: 42
+    students: 100000
+    companies: 2000
+    job_postings: 10000
+    description: "Large demo dataset for production"

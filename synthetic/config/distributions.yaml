@@ -1,0 +1,21 @@
+cgpa:
+  mean: 7.2
+  std: 0.8
+  min: 4.0
+  max: 10.0
+departments:
+  CSE: 0.32
+  ECE: 0.18
+  ME: 0.15
+  CE: 0.10
+  EE: 0.08
+  IT: 0.17
+company_types:
+  PRODUCT: 0.25
+  SERVICES: 0.45
+  STARTUP: 0.15
+  CONSULTING: 0.10
+  OTHER: 0.05
+ctc:
+  mean: 9.8
+  median: 8.2

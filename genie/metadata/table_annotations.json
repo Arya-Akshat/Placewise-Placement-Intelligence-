@@ -1,0 +1,24 @@
+{
+  "tables": {
+    "placewise.semantic.genie_student_intelligence": {
+      "display_name": "Student Intelligence Profiles",
+      "description": "Authoritative one-row-per-student analytical profile containing academic performance, skills, internships, projects, recruitment funnel outcomes, offers, placement status and governed placement readiness metrics."
+    },
+    "placewise.semantic.genie_company_intelligence": {
+      "display_name": "Company Hiring Intelligence",
+      "description": "Authoritative one-row-per-company analytical profile containing campus hiring activity, openings, applications, interviews, offers, placements, conversion metrics and finalized compensation statistics."
+    },
+    "placewise.semantic.genie_department_performance": {
+      "display_name": "Department Placement Benchmarks",
+      "description": "Department-by-graduation-year analytical benchmark containing eligible students, placements, placement rate, compensation and historical performance changes."
+    },
+    "placewise.semantic.genie_skill_market": {
+      "display_name": "Skill Market & Supply-Demand",
+      "description": "Skill-market analytical profile comparing recruiter demand for skills with student supply, proficiency and skill gaps."
+    },
+    "placewise.semantic.genie_student_job_match": {
+      "display_name": "Student to Job Candidate Matching",
+      "description": "Curated student-to-job-posting matching dataset containing eligibility, mandatory skill satisfaction, skill match, skill gaps, candidate fit and ranking signals."
+    }
+  }
+}

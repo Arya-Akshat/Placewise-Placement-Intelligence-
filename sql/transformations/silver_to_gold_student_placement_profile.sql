@@ -1,0 +1,3 @@
+-- Refresh logic for student_placement_profile
+-- Usually implemented via dbt or CREATE OR REPLACE TABLE in Databricks tasks.
+-- See sql/ddl/gold/gold_student_placement_profile.sql for full definition.\n

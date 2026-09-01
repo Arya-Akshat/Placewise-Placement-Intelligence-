@@ -1,0 +1,12 @@
+{
+  "evaluations": [
+    {
+      "question": "What is the highest package in CSE?",
+      "expected_sql": "SELECT MAX(ctc) FROM placewise.core.placements p JOIN placewise.core.students s ON p.student_id = s.student_id WHERE s.department = 'CSE';"
+    },
+    {
+      "question": "How many students are placed?",
+      "expected_sql": "SELECT COUNT(DISTINCT student_id) FROM placewise.core.placements;"
+    }
+  ]
+}

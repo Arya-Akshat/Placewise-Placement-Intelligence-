@@ -1,0 +1,25 @@
+role_skill_profiles:
+  software_engineering:
+    primary: [Python, Java, C++, Data Structures]
+    secondary: [SQL, Git, REST APIs]
+    soft: [Communication, Problem Solving]
+  data_engineering:
+    primary: [Python, SQL, Spark, Kafka]
+    secondary: [AWS, Azure, Airflow, Docker]
+    soft: [Communication, Analytical Thinking]
+  frontend:
+    primary: [JavaScript, React, TypeScript, HTML_CSS]
+    secondary: [Redux, Node.js, CSS_Frameworks]
+    soft: [Communication, Design Thinking]
+  backend:
+    primary: [Python, Java, SQL, REST_APIs]
+    secondary: [Docker, Kubernetes, PostgreSQL, Redis]
+    soft: [Communication, Problem Solving]
+  data_analyst:
+    primary: [SQL, Python, Excel, Power_BI]
+    secondary: [Tableau, Statistics, R]
+    soft: [Communication, Presentation]
+  machine_learning:
+    primary: [Python, ML_Algorithms, Statistics, TensorFlow]
+    secondary: [Spark, SQL, Cloud, Docker]
+    soft: [Analytical Thinking, Communication]

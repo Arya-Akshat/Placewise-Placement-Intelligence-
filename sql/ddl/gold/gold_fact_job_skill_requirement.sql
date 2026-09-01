@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS placewise.gold.fact_job_skill_requirement (id STRING, created_at TIMESTAMP) USING DELTA COMMENT 'Fact: job_skill_requirement';\n

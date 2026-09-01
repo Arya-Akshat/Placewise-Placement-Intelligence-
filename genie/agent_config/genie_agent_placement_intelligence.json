@@ -1,0 +1,101 @@
+{
+  "agent_name": "Placewise Placement Intelligence",
+  "description": "Conversational placement intelligence for analyzing students, companies, recruitment funnels, placement outcomes, skills, candidate-job matching and historical placement trends.",
+  "target_catalog": "placewise",
+  "target_schema": "semantic",
+  "default_warehouse_id": "${DATABRICKS_WAREHOUSE_ID}",
+  "curated_tables": [
+    {
+      "catalog": "placewise",
+      "schema": "semantic",
+      "table_name": "genie_student_intelligence",
+      "display_name": "Student Intelligence Profiles",
+      "grain": "One row per student (student_id)",
+      "description": "Authoritative one-row-per-student analytical profile containing academic performance, skills, internships, projects, recruitment funnel outcomes, offers, placement status and governed placement readiness metrics."
+    },
+    {
+      "catalog": "placewise",
+      "schema": "semantic",
+      "table_name": "genie_company_intelligence",
+      "display_name": "Company Hiring Intelligence",
+      "grain": "One row per company (company_id)",
+      "description": "Authoritative one-row-per-company analytical profile containing campus hiring activity, openings, applications, interviews, offers, placements, conversion metrics and finalized compensation statistics."
+    },
+    {
+      "catalog": "placewise",
+      "schema": "semantic",
+      "table_name": "genie_department_performance",
+      "display_name": "Department Placement Benchmarks",
+      "grain": "Department x Graduation Year (department_code, graduation_year)",
+      "description": "Department-by-graduation-year analytical benchmark containing eligible students, placements, placement rate, compensation and historical performance changes."
+    },
+    {
+      "catalog": "placewise",
+      "schema": "semantic",
+      "table_name": "genie_skill_market",
+      "display_name": "Skill Market & Supply-Demand",
+      "grain": "One row per skill (skill_id)",
+      "description": "Skill-market analytical profile comparing recruiter demand for skills with student supply, proficiency and skill gaps."
+    },
+    {
+      "catalog": "placewise",
+      "schema": "semantic",
+      "table_name": "genie_student_job_match",
+      "display_name": "Student to Job Candidate Matching",
+      "grain": "Student x Job Posting (student_id, job_posting_id)",
+      "description": "Curated student-to-job-posting matching dataset containing eligibility, mandatory skill satisfaction, skill match, skill gaps, candidate fit and ranking signals."
+    }
+  ],
+  "joins": [
+    {
+      "left_table": "placewise.semantic.genie_student_intelligence",
+      "left_key": "student_id",
+      "right_table": "placewise.semantic.genie_student_job_match",
+      "right_key": "student_id",
+      "relationship": "ONE_TO_MANY",
+      "description": "Joins individual student profile to candidate job-matching evaluations."
+    },
+    {
+      "left_table": "placewise.semantic.genie_company_intelligence",
+      "left_key": "company_id",
+      "right_table": "placewise.semantic.genie_student_job_match",
+      "right_key": "company_id",
+      "relationship": "ONE_TO_MANY",
+      "description": "Joins company metadata to candidate job-matching records."
+    },
+    {
+      "left_table": "placewise.semantic.genie_student_intelligence",
+      "left_key": "department_code",
+      "right_table": "placewise.semantic.genie_department_performance",
+      "right_key": "department_code",
+      "relationship": "MANY_TO_ONE",
+      "description": "Joins student profiles to department benchmark performance."
+    }
+  ],
+  "prompt_matching_columns": [
+    "department_code",
+    "department_name",
+    "company_name",
+    "industry",
+    "company_type",
+    "skill_name",
+    "skill_category",
+    "role_family",
+    "graduation_year",
+    "placement_status",
+    "readiness_band",
+    "candidate_fit_band"
+  ],
+  "sample_questions": [
+    "What is the placement rate by department?",
+    "Which companies hired the most students?",
+    "Which skills are most demanded by recruiters?",
+    "Show high-readiness students who do not have an offer.",
+    "Which departments improved their placement rate?",
+    "Which skills have high demand but low student supply?",
+    "Who are the strongest candidates for Software Engineering?",
+    "Compare average placement package across departments.",
+    "Where does the recruitment funnel lose the most candidates?",
+    "Why did a department's placement performance change?"
+  ]
+}

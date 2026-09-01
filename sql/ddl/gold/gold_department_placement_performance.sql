@@ -1,0 +1,1 @@
+CREATE OR REPLACE TABLE placewise.gold.department_placement_performance AS SELECT 'stub' as stub_col;\n

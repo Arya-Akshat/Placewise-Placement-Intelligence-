@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS placewise.gold.dim_job_posting (id STRING, created_at TIMESTAMP) USING DELTA COMMENT 'Dimension: job_posting';\n

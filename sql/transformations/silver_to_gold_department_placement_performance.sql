@@ -1,0 +1,3 @@
+-- Refresh logic for department_placement_performance
+-- Usually implemented via dbt or CREATE OR REPLACE TABLE in Databricks tasks.
+-- See sql/ddl/gold/gold_department_placement_performance.sql for full definition.\n

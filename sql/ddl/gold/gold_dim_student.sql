@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS placewise.gold.dim_student (id STRING, created_at TIMESTAMP) USING DELTA COMMENT 'Dimension: student';\n

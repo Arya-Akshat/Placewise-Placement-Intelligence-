@@ -1,0 +1,95 @@
+{
+  "columns": {
+    "placement_rate": {
+      "display_name": "Placement Rate (%)",
+      "synonyms": [
+        "placement percentage",
+        "placement ratio",
+        "hiring rate",
+        "placed percentage",
+        "batch placement rate"
+      ],
+      "unit": "Percentage (%)",
+      "format": "0.0%"
+    },
+    "placed_ctc_lpa": {
+      "display_name": "Placed Package (LPA)",
+      "synonyms": [
+        "package",
+        "salary",
+        "compensation",
+        "CTC",
+        "LPA",
+        "annual pay",
+        "salary package"
+      ],
+      "unit": "Lakhs Per Annum (INR)",
+      "format": "\u20b90.00 LPA"
+    },
+    "average_ctc_lpa": {
+      "display_name": "Average Package (LPA)",
+      "synonyms": [
+        "average CTC",
+        "mean salary",
+        "average package",
+        "avg salary"
+      ],
+      "unit": "Lakhs Per Annum (INR)",
+      "format": "\u20b90.00 LPA"
+    },
+    "placement_readiness_score": {
+      "display_name": "Placement Readiness Score",
+      "synonyms": [
+        "readiness",
+        "readiness score",
+        "employability score",
+        "placement readiness index"
+      ],
+      "unit": "Score (0-100)",
+      "format": "0.0"
+    },
+    "department_code": {
+      "display_name": "Department / Branch",
+      "synonyms": [
+        "branch",
+        "department",
+        "stream",
+        "discipline",
+        "major"
+      ],
+      "prompt_matching": true
+    },
+    "company_name": {
+      "display_name": "Company / Employer",
+      "synonyms": [
+        "employer",
+        "recruiter",
+        "firm",
+        "organization",
+        "hiring company"
+      ],
+      "prompt_matching": true
+    },
+    "skill_name": {
+      "display_name": "Skill / Technology",
+      "synonyms": [
+        "technology",
+        "programming language",
+        "tool",
+        "competency",
+        "framework"
+      ],
+      "prompt_matching": true
+    },
+    "graduation_year": {
+      "display_name": "Graduation Batch Year",
+      "synonyms": [
+        "batch",
+        "graduating year",
+        "cohort year",
+        "class of"
+      ],
+      "prompt_matching": true
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "examples": [
+    {
+      "intent": "CSE placement rate for 2024",
+      "natural_query": "What is the placement rate for CSE in 2024?",
+      "sql": "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate FROM placewise.semantic.genie_department_performance WHERE department_code = 'CSE' AND graduation_year = 2024;"
+    },
+    {
+      "intent": "Top companies by placements",
+      "natural_query": "Which companies hired the most students?",
+      "sql": "SELECT company_name, industry, company_type, placements_count, average_ctc_lpa FROM placewise.semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT 10;"
+    },
+    {
+      "intent": "Average package by department",
+      "natural_query": "What is the average package across departments in 2024?",
+      "sql": "SELECT department_code, department_name, average_ctc_lpa, median_ctc_lpa, highest_ctc_lpa FROM placewise.semantic.genie_department_performance WHERE graduation_year = 2024 ORDER BY average_ctc_lpa DESC;"
+    },
+    {
+      "intent": "High readiness students with no offer",
+      "natural_query": "Show CSE students with readiness above 80 who have no offers.",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, placement_readiness_score, offers_count, placement_status FROM placewise.semantic.genie_student_intelligence WHERE department_code = 'CSE' AND placement_readiness_score > 80.0 AND offers_count = 0;"
+    },
+    {
+      "intent": "Top demanded skills",
+      "natural_query": "What are the top 10 most demanded skills by recruiters?",
+      "sql": "SELECT demand_rank, skill_name, skill_category, skill_type, job_posting_count, company_count, average_required_score FROM placewise.semantic.genie_skill_market ORDER BY demand_rank ASC LIMIT 10;"
+    },
+    {
+      "intent": "High demand low supply skills",
+      "natural_query": "Which skills have high market demand but low student supply?",
+      "sql": "SELECT skill_name, skill_category, job_posting_count, market_demand_ratio, students_with_skill_count, student_supply_ratio, skill_supply_demand_gap FROM placewise.semantic.genie_skill_market WHERE high_demand_low_supply_flag = TRUE ORDER BY skill_supply_demand_gap DESC;"
+    },
+    {
+      "intent": "Strong academic weak interview students",
+      "natural_query": "Show students with strong academics but weak interview performance.",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, academic_score, interview_score, interviews_count, offers_count FROM placewise.semantic.genie_student_intelligence WHERE strong_academic_weak_interview_flag = TRUE ORDER BY cgpa DESC LIMIT 10;"
+    },
+    {
+      "intent": "Department year-over-year placement comparison",
+      "natural_query": "Which departments improved their placement rate year over year?",
+      "sql": "SELECT department_code, department_name, graduation_year, placement_rate, placement_rate_yoy, placement_rate_change_points FROM placewise.semantic.genie_department_performance WHERE graduation_year = 2024 AND placement_rate_change_points > 0 ORDER BY placement_rate_change_points DESC;"
+    },
+    {
+      "intent": "Company interview-to-offer conversion",
+      "natural_query": "Which companies have the highest interview-to-offer conversion rate?",
+      "sql": "SELECT company_name, industry, company_type, interviews_count, offers_count, interview_to_offer_rate FROM placewise.semantic.genie_company_intelligence WHERE interviews_count >= 50 ORDER BY interview_to_offer_rate DESC LIMIT 10;"
+    },
+    {
+      "intent": "Student-job candidate matching",
+      "natural_query": "Show top software engineering candidates by readiness and fit.",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, technical_skill_score, placement_readiness_score, readiness_band, placement_status FROM placewise.semantic.genie_student_intelligence WHERE preferred_role = 'Software Engineering' ORDER BY placement_readiness_score DESC LIMIT 10;"
+    }
+  ]
+}

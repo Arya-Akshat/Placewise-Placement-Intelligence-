@@ -1,0 +1,217 @@
+{
+  "suite": "Placewise Genie Smoke Tests",
+  "timestamp": "2026-09-01T13:44:54Z",
+  "total_tests": 5,
+  "passed": 5,
+  "results": [
+    {
+      "test_id": "SMOKE-01",
+      "question": "What is CSE placement rate for 2024?",
+      "intent": "Department Placement Rate",
+      "target_object": "semantic.genie_department_performance",
+      "sql": "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate FROM semantic.genie_department_performance WHERE department_code = 'CSE' AND graduation_year = 2024;",
+      "duration_ms": 310.6,
+      "rows": 1,
+      "sample": [
+        {
+          "department_code": "CSE",
+          "graduation_year": 2024,
+          "total_students": 2529,
+          "eligible_students": 2251,
+          "placed_students": 1159,
+          "placement_rate": 51.49
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "test_id": "SMOKE-02",
+      "question": "Which company hired the most students?",
+      "intent": "Top Hiring Companies",
+      "target_object": "semantic.genie_company_intelligence",
+      "sql": "SELECT company_name, industry, company_type, placements_count, average_ctc_lpa FROM semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT 5;",
+      "duration_ms": 2.11,
+      "rows": 5,
+      "sample": [
+        {
+          "company_name": "Mohan Ltd",
+          "industry": "Manufacturing",
+          "company_type": "SERVICES",
+          "placements_count": 145,
+          "average_ctc_lpa": 5.64
+        },
+        {
+          "company_name": "Wipro",
+          "industry": "IT Services",
+          "company_type": "SERVICES",
+          "placements_count": 132,
+          "average_ctc_lpa": 4.17
+        },
+        {
+          "company_name": "Divan-Agate",
+          "industry": "E-Commerce",
+          "company_type": "CONSULTING",
+          "placements_count": 131,
+          "average_ctc_lpa": 6.58
+        },
+        {
+          "company_name": "Bala, Issac and Saini",
+          "industry": "Healthcare",
+          "company_type": "SERVICES",
+          "placements_count": 126,
+          "average_ctc_lpa": 4.43
+        },
+        {
+          "company_name": "Chaudhry-Sarraf",
+          "industry": "Banking",
+          "company_type": "GOVERNMENT",
+          "placements_count": 126,
+          "average_ctc_lpa": 7.74
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "test_id": "SMOKE-03",
+      "question": "What are the top demanded skills?",
+      "intent": "Market Skill Demand Ranking",
+      "target_object": "semantic.genie_skill_market",
+      "sql": "SELECT demand_rank, skill_name, skill_category, job_posting_count, company_count FROM semantic.genie_skill_market ORDER BY demand_rank ASC LIMIT 5;",
+      "duration_ms": 3.57,
+      "rows": 5,
+      "sample": [
+        {
+          "demand_rank": 1,
+          "skill_name": "Communication",
+          "skill_category": "Soft Skills",
+          "job_posting_count": 2409,
+          "company_count": 600
+        },
+        {
+          "demand_rank": 2,
+          "skill_name": "Python",
+          "skill_category": "Programming",
+          "job_posting_count": 1939,
+          "company_count": 599
+        },
+        {
+          "demand_rank": 3,
+          "skill_name": "Problem Solving",
+          "skill_category": "Soft Skills",
+          "job_posting_count": 1934,
+          "company_count": 599
+        },
+        {
+          "demand_rank": 4,
+          "skill_name": "SQL",
+          "skill_category": "Database",
+          "job_posting_count": 1713,
+          "company_count": 596
+        },
+        {
+          "demand_rank": 5,
+          "skill_name": "Git",
+          "skill_category": "DevOps",
+          "job_posting_count": 1187,
+          "company_count": 556
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "test_id": "SMOKE-04",
+      "question": "Show high-readiness students without offers.",
+      "intent": "Unplaced High Readiness Candidates",
+      "target_object": "semantic.genie_student_intelligence",
+      "sql": "SELECT student_id, full_name, department_code, cgpa, academic_score, skill_score, placement_readiness_score, offers_count FROM semantic.genie_student_intelligence WHERE offers_count = 0 AND placement_status IN ('ELIGIBLE','ACTIVE') ORDER BY placement_readiness_score DESC LIMIT 5;",
+      "duration_ms": 4.08,
+      "rows": 5,
+      "sample": [
+        {
+          "student_id": "stu_9fcf7b340c",
+          "full_name": "Samesh Gandhi",
+          "department_code": "ME",
+          "cgpa": 9.28,
+          "academic_score": 92.29,
+          "skill_score": 74.26,
+          "placement_readiness_score": 71.36,
+          "offers_count": 0
+        },
+        {
+          "student_id": "stu_ad4efd04e4",
+          "full_name": "Ojas Mistry",
+          "department_code": "AIML",
+          "cgpa": 9.52,
+          "academic_score": 94.71,
+          "skill_score": 74.51,
+          "placement_readiness_score": 70.29,
+          "offers_count": 0
+        },
+        {
+          "student_id": "stu_d1a4cc79bb",
+          "full_name": "Balveer Suri",
+          "department_code": "ME",
+          "cgpa": 8.63,
+          "academic_score": 85.24,
+          "skill_score": 74.31,
+          "placement_readiness_score": 69.47,
+          "offers_count": 0
+        },
+        {
+          "student_id": "stu_7553110dd8",
+          "full_name": "Anjali Nath",
+          "department_code": "ME",
+          "cgpa": 8.9,
+          "academic_score": 87.9,
+          "skill_score": 71.73,
+          "placement_readiness_score": 69.43,
+          "offers_count": 0
+        },
+        {
+          "student_id": "stu_f0b93fd570",
+          "full_name": "Farhan Khurana",
+          "department_code": "CH",
+          "cgpa": 8.75,
+          "academic_score": 86.52,
+          "skill_score": 74.6,
+          "placement_readiness_score": 69.33,
+          "offers_count": 0
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "test_id": "SMOKE-05",
+      "question": "Which departments improved placement rate?",
+      "intent": "Year-over-Year Improvement",
+      "target_object": "semantic.genie_department_performance",
+      "sql": "SELECT department_code, graduation_year, placement_rate, placement_rate_yoy, placement_rate_change_points FROM semantic.genie_department_performance WHERE graduation_year = 2024 AND placement_rate_change_points > 0 ORDER BY placement_rate_change_points DESC;",
+      "duration_ms": 1.91,
+      "rows": 3,
+      "sample": [
+        {
+          "department_code": "IT",
+          "graduation_year": 2024,
+          "placement_rate": 44.8,
+          "placement_rate_yoy": 40.28,
+          "placement_rate_change_points": 4.52
+        },
+        {
+          "department_code": "CSE",
+          "graduation_year": 2024,
+          "placement_rate": 51.49,
+          "placement_rate_yoy": 50.41,
+          "placement_rate_change_points": 1.08
+        },
+        {
+          "department_code": "ME",
+          "graduation_year": 2024,
+          "placement_rate": 30.34,
+          "placement_rate_yoy": 29.33,
+          "placement_rate_change_points": 1.01
+        }
+      ],
+      "status": "PASS"
+    }
+  ]
+}
