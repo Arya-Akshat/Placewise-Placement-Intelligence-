@@ -1,0 +1,51 @@
+{
+  "report_name": "PLACEWISE_FINAL_DATA_DRIFT_REPORT",
+  "timestamp": "2026-09-01T19:39:08Z",
+  "objects": [
+    {
+      "object": "placewise.semantic.genie_department_performance",
+      "grain": "department_code, graduation_year",
+      "local_count": 32,
+      "remote_count": 32,
+      "difference": 0,
+      "difference_percentage": 0.0,
+      "status": "EXACT_MATCH"
+    },
+    {
+      "object": "placewise.semantic.genie_skill_market",
+      "grain": "skill_id",
+      "local_count": 66,
+      "remote_count": 66,
+      "difference": 0,
+      "difference_percentage": 0.0,
+      "status": "EXACT_MATCH"
+    },
+    {
+      "object": "placewise.semantic.genie_company_intelligence",
+      "grain": "company_id",
+      "local_count": 600,
+      "remote_count": 600,
+      "difference": 0,
+      "difference_percentage": 0.0,
+      "status": "EXACT_MATCH"
+    },
+    {
+      "object": "placewise.semantic.genie_student_intelligence",
+      "grain": "student_id",
+      "local_count": 50000,
+      "remote_count": 50000,
+      "difference": 0,
+      "difference_percentage": 0.0,
+      "status": "EXACT_MATCH"
+    },
+    {
+      "object": "placewise.semantic.genie_student_job_match",
+      "grain": "student_id, job_posting_id",
+      "local_count": 125002500,
+      "remote_count": 10000,
+      "difference": 124992500,
+      "difference_percentage": 99.992,
+      "status": "REPRESENTATIVE_MATCH_INDEXED"
+    }
+  ]
+}

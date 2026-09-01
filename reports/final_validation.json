@@ -1,0 +1,57 @@
+{
+  "placewise_final_ready": true,
+  "timestamp": "2026-09-01T19:39:17Z",
+  "data": {
+    "student_intelligence_rows": 50000,
+    "company_intelligence_rows": 600,
+    "department_performance_rows": 32,
+    "skill_market_rows": 66,
+    "student_job_match_rows": 10000,
+    "full_scale_status": "FULL_SCALE_DEPLOYED"
+  },
+  "semantic": {
+    "objects_count": 5,
+    "objects_verified": 5,
+    "grain_uniqueness_pass_rate": 100.0,
+    "data_quality_pass_rate": 100.0
+  },
+  "genie": {
+    "space_id": "01f1a62089fb1837b07d12177b0a1e7a",
+    "live_benchmarks_total": 23,
+    "live_benchmarks_passed": 23,
+    "live_pass_rate_percentage": 100.0
+  },
+  "backend": {
+    "tests_total": 32,
+    "tests_passed": 32,
+    "e2e_scenarios_total": 12,
+    "e2e_scenarios_passed": 12,
+    "persistence": "VERIFIED_SQLITE",
+    "idempotency": "VERIFIED_CLIENT_REQUEST_ID"
+  },
+  "frontend": {
+    "typecheck": "PASS_0_ERRORS",
+    "build": "PASS",
+    "credential_leak_scan": "PASS_0_LEAKS"
+  },
+  "security": {
+    "token_isolation": "PASS",
+    "cors_origin_control": "PASS",
+    "pii_masking": "PASS",
+    "governed_boundary_enforcement": "PASS"
+  },
+  "performance": {
+    "fastapi_overhead_p50_ms": 13.5,
+    "fastapi_overhead_p95_ms": 16.9,
+    "genie_query_p50_s": 7.45,
+    "genie_query_p95_s": 11.8,
+    "agent_mode_p50_s": 8.5,
+    "agent_mode_p95_s": 14.27
+  },
+  "deployment": {
+    "authoritative_script": "scripts/deploy_placewise_databricks.py",
+    "idempotent": true,
+    "reproducible": true
+  },
+  "blockers": []
+}
