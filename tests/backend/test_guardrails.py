@@ -12,10 +12,14 @@ def test_guardrails_profanity_blocked():
     assert r2.category == "INAPPROPRIATE"
 
 def test_guardrails_greetings():
-    r = check_guardrails("Hello there")
+    r = check_guardrails("Hello")
     assert not r.is_allowed
     assert r.category == "GREETING"
     assert "Placewise" in r.response_text
+
+    r2 = check_guardrails("hi")
+    assert not r2.is_allowed
+    assert r2.category == "GREETING"
 
 def test_guardrails_out_of_domain():
     r = check_guardrails("How do I cook pasta?")

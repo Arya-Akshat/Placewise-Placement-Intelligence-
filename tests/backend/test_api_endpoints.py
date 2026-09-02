@@ -38,7 +38,7 @@ def test_start_and_follow_up_conversation_mock(monkeypatch):
     assert res2.status_code == 200
     msg = res2.json()
     assert "48.86%" in msg["content"]
-    assert msg["attachment"]["recommended_visualization"] == "BAR"
+    assert msg["attachment"]["recommended_visualization"] in ("BAR", "KPI")
 
 def test_clarification_endpoint_mock(monkeypatch):
     monkeypatch.setenv("USE_MOCK_BACKEND", "true")

@@ -1,9 +1,17 @@
 """
-PLACEWISE — Authoritative Entity & Intent Extraction Engine
+PLACEWISE -- Authoritative Entity & Intent Extraction Engine
 ==========================================================
 Deterministic, multi-pattern NLP extractor for entities (companies,
 departments, roles, skills, metrics, thresholds, years) grounded in
 the Placewise analytical database schema.
+
+Design Principles:
+  1. Longest-match-first: All synonym lists are sorted by string length
+     descending so "electrical and electronics" matches EEE before
+     "electronics" matches ECE.
+  2. Word-boundary matching: Prevents partial substring hallucinations.
+  3. Pronoun-safe: Short ambiguous words ("me", "it", "ce") have
+     context-aware guards to prevent false triggers.
 """
 
 import re, duckdb, os
@@ -14,29 +22,36 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "../../data/placewise.duckdb")
 DEPARTMENT_SYNONYMS = {
     "CSE": [
         "computer science and engineering", "computer science & engineering",
-        "computer science", "comp sci", "cse", "cs branch", "cs dept", "computer branch"
+        "computer science", "comp sci", "cse", "cs branch", "cs dept",
+        "computer branch", "computer engineering", "cs department"
     ],
     "ECE": [
         "electronics and communication engineering", "electronics and communication",
-        "electronics & communication", "electronics", "ece", "ec branch", "ec dept", "enc"
+        "electronics & communication engineering", "electronics & communication",
+        "electronics engineering", "electronics", "ece", "ec branch", "ec dept", "enc"
     ],
     "IT": [
-        "information technology", "info tech", "it branch", "it dept", "it department"
+        "information technology", "info tech",
+        "it branch", "it dept", "it department",
+        "it students", "it placement", "it placements"
     ],
     "AIML": [
         "artificial intelligence & machine learning", "artificial intelligence and machine learning",
         "artificial intelligence", "ai & ml", "ai and ml", "aiml", "ai branch", "ml branch",
-        "machine learning branch", "data science"
+        "machine learning branch", "data science branch", "data science department"
     ],
     "ME": [
-        "mechanical engineering", "mechanical", "mech", "me branch", "me dept", "me department"
+        "mechanical engineering", "mechanical", "mech",
+        "me branch", "me dept", "me department"
     ],
     "CE": [
-        "civil engineering", "civil", "ce branch", "ce dept", "ce department"
+        "civil engineering", "civil",
+        "ce branch", "ce dept", "ce department"
     ],
     "EEE": [
         "electrical and electronics engineering", "electrical and electronics",
-        "electrical & electronics", "electrical engineering", "electrical", "eee", "ee branch", "ee dept"
+        "electrical & electronics engineering", "electrical & electronics",
+        "electrical engineering", "electrical", "eee", "ee branch", "ee dept"
     ],
     "CH": [
         "chemical engineering", "chemical", "chem", "ch branch", "ch dept"
@@ -73,14 +88,21 @@ ROLE_SYNONYMS = {
         "data engineering", "data engineer", "big data engineer", "etl engineer", "data pipeline"
     ],
     "data_analyst": [
-        "data analyst", "business analyst", "bi analyst", "analyst", "analytics", "data analytics"
+        "data analyst", "business analyst", "bi analyst", "data analytics"
     ],
     "machine_learning": [
-        "machine learning", "ml engineer", "ai engineer", "data scientist", "deep learning", "nlp"
+        "machine learning engineer", "ml engineer", "ai engineer", "data scientist",
+        "deep learning engineer", "machine learning", "deep learning"
     ],
     "software_engineering": [
         "software engineering", "software engineer", "software developer", "sde", "swe",
-        "developer", "software development", "programmer"
+        "software development", "programmer"
+    ],
+    "devops": [
+        "devops engineer", "site reliability", "sre", "devops", "cloud engineer"
+    ],
+    "product_management": [
+        "product manager", "product management", "apm", "associate product manager"
     ]
 }
 
@@ -107,7 +129,22 @@ COMPANY_ALIASES = {
     "walmart": ["walmart", "walmart global tech"],
     "oracle": ["oracle"],
     "cisco": ["cisco"],
-    "qualcomm": ["qualcomm"]
+    "qualcomm": ["qualcomm"],
+    "uber": ["uber"],
+    "meta": ["meta", "facebook"],
+    "apple": ["apple"],
+    "ibm": ["ibm"],
+    "deloitte": ["deloitte"],
+    "accenture": ["accenture"],
+    "cognizant": ["cognizant"],
+    "capgemini": ["capgemini"],
+    "samsung": ["samsung"],
+    "intel": ["intel"],
+    "vmware": ["vmware"],
+    "salesforce": ["salesforce"],
+    "jpmorgan": ["jpmorgan", "jp morgan", "jpmc", "chase"],
+    "morgan stanley": ["morgan stanley"],
+    "deutsche bank": ["deutsche bank", "deutsche"],
 }
 
 _COMPANY_CACHE = None
@@ -129,12 +166,22 @@ def extract_department(text: str) -> Optional[str]:
     for syn, dept_code in _SORTED_DEPT_PATTERNS:
         if re.search(r"\b" + re.escape(syn) + r"\b", t):
             return dept_code
+    # Standalone "IT" check with context guard
+    # Only match standalone "IT" if it's clearly referring to a department
+    if re.search(r"\bit\b", t):
+        it_context_words = [
+            "student", "students", "placement", "placements", "placed",
+            "department", "dept", "branch", "rate", "package", "salary",
+            "hirer", "hirers", "recruiter", "company", "companies",
+            "average", "highest", "cgpa", "batch", "2024", "2023"
+        ]
+        if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in it_context_words):
+            return "IT"
     return None
 
 def extract_all_departments(text: str) -> List[str]:
     t = f" {text.lower()} "
     found = []
-    # Track positions of matches to avoid sub-match duplication
     matched_ranges = []
     for syn, dept_code in _SORTED_DEPT_PATTERNS:
         for m in re.finditer(r"\b" + re.escape(syn) + r"\b", t):
@@ -143,13 +190,24 @@ def extract_all_departments(text: str) -> List[str]:
                 matched_ranges.append((s, e))
                 if dept_code not in found:
                     found.append(dept_code)
+    # Same standalone IT context check
+    if "IT" not in found and re.search(r"\bit\b", t):
+        it_context_words = [
+            "student", "students", "placement", "placements", "placed",
+            "department", "dept", "branch", "rate", "package", "salary",
+            "hirer", "hirers", "recruiter", "company", "companies",
+            "average", "highest", "cgpa", "batch", "2024", "2023",
+            "compare", "vs", "cse", "ece", "me", "eee"
+        ]
+        if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in it_context_words):
+            found.append("IT")
     return found
 
 def extract_company(text: str) -> Optional[Tuple[str, str]]:
     t = f" {text.lower()} "
     comps, _ = get_master_data()
 
-    # 1. Check known aliases first
+    # 1. Check known aliases first (handles abbreviations and parent companies)
     for alias_target, alias_list in COMPANY_ALIASES.items():
         for al in alias_list:
             if re.search(r"\b" + re.escape(al) + r"\b", t):
@@ -157,7 +215,7 @@ def extract_company(text: str) -> Optional[Tuple[str, str]]:
                     if alias_target in cname.lower():
                         return cid, cname
 
-    # 2. Check full company list
+    # 2. Check full company list (longest name first to avoid substring matches)
     for cid, cname in comps:
         cn = cname.lower()
         if len(cn) >= 3 and re.search(r"\b" + re.escape(cn) + r"\b", t):
@@ -184,35 +242,95 @@ def extract_skills(text: str) -> List[Tuple[str, str, str]]:
             matched.append((sid, sname, scat))
     return matched
 
+
+# --- Intent Classification ---
+
+INTENT_KEYWORDS = {
+    "company_info": [
+        "tell me about", "about", "info", "information", "details",
+        "stats", "statistics", "profile", "overview", "doing", "performance"
+    ],
+    "placement_count": [
+        "how many", "count", "number", "total", "placed", "hired",
+        "recruit", "recruited", "placements", "hires"
+    ],
+    "package_inquiry": [
+        "package", "packages", "ctc", "salary", "salaries", "pay",
+        "paying", "compensation", "offer", "offered", "lpa", "lakh",
+        "how much"
+    ],
+    "skill_inquiry": [
+        "skill", "skills", "interview", "prepare", "preparation",
+        "clear", "learn", "crack", "criteria", "requirements",
+        "required", "needed", "get placed", "how to get into"
+    ],
+    "comparison": [
+        "compare", "comparison", "vs", "versus", "between",
+        "difference", "better", "worse"
+    ],
+    "ranking": [
+        "best", "worst", "top", "bottom", "highest", "lowest",
+        "maximum", "minimum", "most", "least", "rank", "ranking"
+    ],
+    "department_overview": [
+        "department", "departments", "branch", "branches",
+        "all departments", "every department", "each department",
+        "across departments", "by department", "department wise"
+    ],
+    "trend": [
+        "improved", "improvement", "declined", "trend", "trends",
+        "growth", "change", "year over year", "yoy"
+    ]
+}
+
+
+def classify_intents(text: str) -> List[str]:
+    """Return list of detected intent categories from the query text."""
+    t = f" {text.lower()} "
+    detected = []
+    for intent, keywords in INTENT_KEYWORDS.items():
+        for kw in keywords:
+            if re.search(r"\b" + re.escape(kw) + r"\b", t):
+                if intent not in detected:
+                    detected.append(intent)
+                break
+    return detected
+
+
 def extract_numeric_thresholds(text: str) -> Dict[str, Any]:
     t = text.lower()
     res = {}
-    
+
     # Top N limit (e.g. top 5, top 10)
     m_top = re.search(r"\btop\s+(\d+)\b", t)
     if m_top:
         res["limit"] = int(m_top.group(1))
 
     # Package / CTC threshold (e.g. > 20 LPA, more than 15 lakh, above 12)
-    m_lpa = re.search(r"(?:more than|greater than|above|>|>=)\s*(\d+(?:\.\d+)?)\s*(?:lpa|lakh)?", t)
-    if m_lpa and any(w in t for w in ["package", "ctc", "salary", "paying", "offer", "lpa", "lakh"]):
+    m_lpa = re.search(r"(?:more than|greater than|above|over|exceeding|>|>=)\s*(\d+(?:\.\d+)?)\s*(?:lpa|lakh)?", t)
+    if m_lpa and any(w in t for w in ["package", "ctc", "salary", "paying", "offer", "lpa", "lakh", "pay"]):
         res["min_ctc_lpa"] = float(m_lpa.group(1))
 
-    # CGPA threshold (e.g. CGPA > 8.5, above 9 cgpa)
-    m_cgpa = re.search(r"cgpa\s*(?:greater than|>|above|>=)?\s*(\d+(?:\.\d+)?)", t)
+    # Less-than threshold (e.g. below 5 LPA, less than 10 LPA)
+    m_lpa_lt = re.search(r"(?:less than|below|under|<|<=)\s*(\d+(?:\.\d+)?)\s*(?:lpa|lakh)?", t)
+    if m_lpa_lt and any(w in t for w in ["package", "ctc", "salary", "paying", "offer", "lpa", "lakh", "pay"]):
+        res["max_ctc_lpa"] = float(m_lpa_lt.group(1))
+
+    # CGPA threshold
+    m_cgpa = re.search(r"cgpa\s*(?:greater than|above|over|>|>=)?\s*(\d+(?:\.\d+)?)", t)
     if not m_cgpa:
-        m_cgpa = re.search(r"(?:greater than|>|above|>=)\s*(\d+(?:\.\d+)?)\s*cgpa", t)
+        m_cgpa = re.search(r"(?:greater than|above|over|>|>=)\s*(\d+(?:\.\d+)?)\s*cgpa", t)
     if m_cgpa:
         res["min_cgpa"] = float(m_cgpa.group(1))
 
     # Company Type (PRODUCT, SERVICES, STARTUP, CONSULTING)
-    if "product" in t:
+    if re.search(r"\bproduct\b", t):
         res["company_type"] = "PRODUCT"
-    elif "service" in t:
+    elif re.search(r"\bservice\b", t) or re.search(r"\bservices\b", t):
         res["company_type"] = "SERVICES"
-    elif "startup" in t:
+    elif re.search(r"\bstartup\b", t) or re.search(r"\bstartups\b", t):
         res["company_type"] = "STARTUP"
-    elif "consulting" in t:
+    elif re.search(r"\bconsulting\b", t):
         res["company_type"] = "CONSULTING"
 
     # Year (e.g. 2024, 2023, 2022)
@@ -232,6 +350,7 @@ def parse_query_semantics(query: str) -> Dict[str, Any]:
     role = extract_role(p)
     skills = extract_skills(p)
     thresholds = extract_numeric_thresholds(p)
+    intents = classify_intents(p)
 
     return {
         "raw_query": query,
@@ -241,5 +360,6 @@ def parse_query_semantics(query: str) -> Dict[str, Any]:
         "company": comp,
         "role": role,
         "skills": skills,
-        "thresholds": thresholds
+        "thresholds": thresholds,
+        "intents": intents
     }
