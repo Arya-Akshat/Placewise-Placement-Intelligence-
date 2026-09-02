@@ -1,11 +1,11 @@
 """
 PLACEWISE — Offline / Development Mock Analytics Engine
 =======================================================
-Isolated mock query processor used only during local development or unit tests
-when Databricks Genie live credentials are not available.
+Isolated mock query processor used during local development or unit tests
+when Databricks Genie live credentials are not available or restricted by policy.
 """
 
-import os, uuid, time, duckdb
+import os, uuid, time, re, duckdb
 from typing import List, Dict, Any
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "../../data/placewise.duckdb")
@@ -75,6 +75,29 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             "status": "COMPLETED",
             "created_at": now,
             "follow_up_suggestions": guard.suggestions
+        }
+
+    # 0.1 Model / Architecture questions
+    if any(phrase in p for phrase in ["what model", "which model", "model are you", "model are u", "how do you work", "architecture"]):
+        return {
+            "message_id": msg_id,
+            "role": "assistant",
+            "content": (
+                "**Placewise Architecture & Model Stack:**\n\n"
+                "• **AI Engine**: Databricks Genie Agent using specialized text-to-SQL foundation models\n"
+                "• **Semantic & Data Layer**: Databricks Unity Catalog (`placewise.semantic.*`)\n"
+                "• **Orchestration**: FastAPI backend with SQLite conversation persistence\n"
+                "• **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS with dark/light themes\n"
+                "• **Grounded Data**: Institutional placement profiles, department benchmarks, recruiter compensation, and candidate-job matching"
+            ),
+            "status": "COMPLETED",
+            "created_at": now,
+            "follow_up_suggestions": [
+                "What is the placement rate for CSE in 2024?",
+                "Which companies hired the most students?",
+                "What are the top 10 demanded skills?",
+                "Find strong candidates for Data Engineering"
+            ]
         }
 
     con = get_mock_db()
@@ -171,22 +194,64 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             }
         }
 
-    # 4. Recruiter Analytics (Companies hired most students)
-    if "companies hired the most" in p or "top hiring companies" in p or "highest hiring" in p:
-        sql = "SELECT company_name, industry, company_type, placements_count, average_ctc_lpa, interview_to_offer_rate FROM semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT 10;"
+    # 4. Recruiter / Hirer Analytics (Companies, hirers, top recruiters)
+    recruiter_triggers = ["hirer", "hirers", "recruiter", "recruiters", "company", "companies", "who hired", "top hiring", "highest hiring"]
+    if any(w in p for w in recruiter_triggers):
+        limit = 10
+        m_limit = re.search(r"\btop\s+(\d+)\b", p)
+        if m_limit:
+            try:
+                limit = int(m_limit.group(1))
+            except Exception:
+                limit = 10
+
+        dept = None
+        for d in ["cse", "ece", "mech", "civil", "aiml", "it", "ee"]:
+            if f" {d} " in f" {p} " or f" {d}" in f" {p}" or f"{d} " in f" {p}":
+                dept = d.upper()
+                break
+
+        if "package" in p or "ctc" in p or "salary" in p or "highest paying" in p:
+            sql = f"SELECT company_name, industry, company_type, average_ctc_lpa, highest_ctc_lpa, placements_count FROM semantic.genie_company_intelligence WHERE placements_count > 0 ORDER BY average_ctc_lpa DESC LIMIT {limit};"
+            content = f"Top {limit} corporate recruiters offering the highest average compensation packages (CTC):"
+            source_obj = "semantic.genie_company_intelligence"
+        elif dept:
+            sql = f"""
+                SELECT 
+                    c.company_name, 
+                    c.industry, 
+                    c.company_type,
+                    COUNT(p.placement_id) as placements_count,
+                    ROUND(AVG(p.ctc_lpa), 2) as average_ctc_lpa,
+                    ROUND(MAX(p.ctc_lpa), 2) as highest_ctc_lpa
+                FROM silver.placements p
+                JOIN semantic.genie_student_intelligence s ON p.student_id = s.student_id
+                JOIN silver.companies c ON p.company_id = c.company_id
+                WHERE UPPER(s.department_code) = '{dept}'
+                GROUP BY c.company_name, c.industry, c.company_type
+                ORDER BY placements_count DESC
+                LIMIT {limit};
+            """
+            content = f"Top {limit} hiring companies for {dept} students, ranked by confirmed student placement volume:"
+            source_obj = "semantic.genie_company_intelligence (filtered by department)"
+        else:
+            sql = f"SELECT company_name, industry, company_type, placements_count, average_ctc_lpa, interview_to_offer_rate FROM semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT {limit};"
+            content = f"Top {limit} hiring recruiters ranked by finalized student placements across all departments and programs:"
+            source_obj = "semantic.genie_company_intelligence"
+
         df = con.execute(sql).df()
         cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
         rows = df.to_dict(orient="records")
         return {
             "message_id": msg_id,
             "role": "assistant",
-            "content": "Top hiring recruiters ranked by finalized student placements across all departments and programs:",
+            "content": content,
             "status": "COMPLETED",
             "created_at": now,
             "attachment": {
                 "query_id": f"qry_{uuid.uuid4().hex[:8]}",
                 "query_text": sql,
-                "source_object": "semantic.genie_company_intelligence",
+                "source_object": source_obj,
                 "recommended_visualization": "BAR",
                 "table_data": {
                     "columns": cols,
@@ -196,13 +261,14 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 }
             },
             "follow_up_suggestions": [
-                "Which companies have the highest average package?",
-                "Which companies have the highest interview conversion?"
+                f"Which companies offer the highest average package in {dept or 'CSE'}?",
+                f"What is the placement rate for {dept or 'CSE'} in 2024?",
+                "Which skills are most demanded by these recruiters?"
             ]
         }
 
     # 5. Skills Analytics (Top demanded / Supply-demand gap)
-    if "top 10 demanded skills" in p or "demanded skills" in p or "skill" in p:
+    if "demanded skills" in p or "skill" in p or "technologies" in p:
         if "low supply" in p or "gap" in p:
             sql = "SELECT skill_name, skill_category, demand_rank, job_posting_count, student_supply_ratio, market_demand_ratio, skill_supply_demand_gap FROM semantic.genie_skill_market WHERE high_demand_low_supply_flag = TRUE ORDER BY skill_supply_demand_gap DESC LIMIT 10;"
             content = "Skills with high recruiter demand but low student supply (critical institutional skill gap):"
@@ -234,8 +300,8 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
         }
 
     # 6. Student Discovery & Candidate Matching
-    if "high-readiness" in p or "without offers" in p or "data engineering" in p or "candidate" in p:
-        if "data engineering" in p:
+    if "high-readiness" in p or "without offers" in p or "candidate" in p or "candidates" in p or "find" in p:
+        if "data engineering" in p or "engineering" in p:
             sql = "SELECT student_id, full_name, department_code, cgpa, preferred_role, placement_readiness_score, readiness_band, offers_count, placement_status FROM semantic.genie_student_intelligence WHERE preferred_role = 'Data Engineering' ORDER BY placement_readiness_score DESC LIMIT 10;"
             content = "Strongest candidate recommendations for Data Engineering roles, ranked by placement readiness and verified skill profile:"
         else:
@@ -266,7 +332,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
         }
 
     # 7. Department Placement Rate & Trends
-    if "placement rate" in p or "placed in 2024" in p or "compare with ece" in p or "improved" in p:
+    if "placement rate" in p or "placed in 2024" in p or "compare" in p or "improved" in p or "department" in p or "branch" in p:
         if "improved" in p:
             sql = "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, placement_rate_yoy, placement_rate_change_points FROM semantic.genie_department_performance WHERE graduation_year = 2024 AND placement_rate_change_points > 0 ORDER BY placement_rate_change_points DESC;"
             content = "Departments showing positive year-over-year placement rate improvements in the 2024 cohort:"
@@ -276,8 +342,13 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             content = "Comparison of CSE and ECE for the 2024 graduating batch: CSE achieved a 51.49% placement rate (1,159 placed), while ECE achieved 48.86% (794 placed)."
             rec_vis = "BAR"
         else:
-            sql = "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, average_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = 'CSE' AND graduation_year = 2024;"
-            content = "CSE placement rate for the 2024 graduating cohort was 51.49%, based on 1,159 placed students out of 2,251 eligible students with an average package of ₹8.92 LPA."
+            dept = "CSE"
+            for d in ["ece", "mech", "civil", "aiml", "it", "ee"]:
+                if d in p:
+                    dept = d.upper()
+                    break
+            sql = f"SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, average_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = '{dept}' AND graduation_year = 2024;"
+            content = f"{dept} placement rate for the 2024 graduating cohort was 51.49%, based on 1,159 placed students out of 2,251 eligible students with an average package of ₹8.92 LPA." if dept == 'CSE' else f"{dept} placement performance for the 2024 graduating cohort:"
             rec_vis = "KPI"
 
         df = con.execute(sql).df()
@@ -319,29 +390,18 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 8. Default Fallback
-    sql = "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, average_ctc_lpa FROM semantic.genie_department_performance WHERE graduation_year = 2024 ORDER BY placement_rate DESC LIMIT 5;"
-    content = "Summary of 2024 department placement performance from the governed Placewise semantic layer:"
-    df = con.execute(sql).df()
-    cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-    rows = df.to_dict(orient="records")
-
+    # 8. Polite Analytical Fallback (Never dump an arbitrary department table for unparsed queries)
     return {
         "message_id": msg_id,
         "role": "assistant",
-        "content": content,
+        "content": f"I analyzed your query: *\"{prompt}\"*. To provide precise placement intelligence, please select a specific analytical domain or choose from the suggested questions below:",
         "status": "COMPLETED",
         "created_at": now,
-        "attachment": {
-            "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-            "query_text": sql,
-            "source_object": "semantic.genie_department_performance",
-            "recommended_visualization": "TABLE",
-            "table_data": {
-                "columns": cols,
-                "rows": rows,
-                "total_row_count": len(rows),
-                "truncated": False
-            }
-        }
+        "follow_up_suggestions": [
+            "What is the placement rate for CSE in 2024?",
+            "Which companies hired the most students?",
+            "What are the top 10 demanded skills?",
+            "Find strong candidates for Data Engineering",
+            "Which departments improved placement rate?"
+        ]
     }

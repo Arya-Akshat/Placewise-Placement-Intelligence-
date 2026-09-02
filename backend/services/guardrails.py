@@ -20,17 +20,18 @@ PROFANITY_PATTERNS = [
 PLACEMENT_DOMAIN_KEYWORDS = [
     "placement", "placed", "place", "unplaced", "eligible", "offer", "offers",
     "ctc", "lpa", "package", "salary", "compensation", "highest", "lowest", "average", "median",
-    "department", "dept", "cse", "ece", "mech", "mechanical", "civil", "ee", "electrical", "aiml", "it", "btech", "mtech",
-    "company", "companies", "recruiter", "recruiters", "hiring", "hire", "hired", "interview", "interviews", "shortlist",
+    "department", "dept", "branch", "cse", "ece", "mech", "mechanical", "civil", "ee", "electrical", "aiml", "it", "btech", "mtech",
+    "company", "companies", "recruiter", "recruiters", "hiring", "hire", "hired", "hirer", "hirers", "interview", "interviews", "shortlist",
     "skill", "skills", "technology", "technologies", "python", "sql", "java", "react", "cloud", "aws", "docker", "supply", "demand", "gap",
     "student", "students", "candidate", "candidates", "cgpa", "readiness", "score", "grade", "backlog", "funnel",
     "batch", "year", "2021", "2022", "2023", "2024", "trend", "trends", "compare", "performance", "improve", "decline",
-    "selectivity", "conversion", "acceptance", "shortlisted", "rate", "percentage", "ratio"
+    "selectivity", "conversion", "acceptance", "shortlisted", "rate", "percentage", "ratio",
+    "college", "campus", "institution", "rvce", "university", "model"
 ]
 
 GREETING_PATTERNS = [
     r"^(hi|hello|hey|greetings|good\s*(morning|afternoon|evening)|howdy)\b",
-    r"^(who are you|what can you do|help|what is placewise|what is this)\b"
+    r"^(who are you|what can you do|help|what is placewise|what is this|what model|which model)\b"
 ]
 
 class GuardrailResult:
@@ -66,7 +67,28 @@ def check_guardrails(prompt: str) -> GuardrailResult:
                 ]
             )
 
-    # 2. Greeting / Identity Check
+    # 2. System Architecture / Model Inquiry Check
+    if any(m in p for m in ["what model", "which model", "model are you", "model are u", "tech stack", "what llm"]):
+        return GuardrailResult(
+            is_allowed=False,
+            category="SYSTEM_INFO",
+            response_text=(
+                "**Placewise AI Architecture & Model Stack:**\n\n"
+                "• **AI Engine**: Databricks Genie Agent using specialized text-to-SQL foundation models\n"
+                "• **Governed Data Layer**: Databricks Unity Catalog (`placewise.semantic.*`)\n"
+                "• **Orchestration Layer**: FastAPI backend with SQLite conversation persistence\n"
+                "• **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS with dark/light themes\n"
+                "• **Grounded Data**: Department benchmarks, corporate recruiter compensation, and student-job candidate matching"
+            ),
+            suggestions=[
+                "What is the placement rate for CSE in 2024?",
+                "Which companies hired the most students?",
+                "What are the top 10 demanded skills?",
+                "Find strong candidates for Data Engineering"
+            ]
+        )
+
+    # 3. Greeting / Identity Check
     for pattern in GREETING_PATTERNS:
         if re.search(pattern, p, re.IGNORECASE):
             return GuardrailResult(
