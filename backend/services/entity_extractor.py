@@ -317,9 +317,9 @@ def extract_numeric_thresholds(text: str) -> Dict[str, Any]:
         res["max_ctc_lpa"] = float(m_lpa_lt.group(1))
 
     # CGPA threshold
-    m_cgpa = re.search(r"cgpa\s*(?:greater than|above|over|>|>=)?\s*(\d+(?:\.\d+)?)", t)
+    m_cgpa = re.search(r"cgpa\s*(?:of|is|equals|==|=|greater than|above|over|>|>=)?\s*(\d+(?:\.\d+)?)", t)
     if not m_cgpa:
-        m_cgpa = re.search(r"(?:greater than|above|over|>|>=)\s*(\d+(?:\.\d+)?)\s*cgpa", t)
+        m_cgpa = re.search(r"(?:greater than|above|over|>|>=|of|is)\s*(\d+(?:\.\d+)?)\s*cgpa", t)
     if m_cgpa:
         res["min_cgpa"] = float(m_cgpa.group(1))
 

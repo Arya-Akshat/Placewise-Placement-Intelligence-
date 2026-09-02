@@ -480,6 +480,30 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             suggestions=["Compare CSE and ECE placement rates", "Which companies hired the most CSE students?"])
 
     # ========================================================================
+    # RULE 7.5: Role-based Company Targeting
+    # ========================================================================
+    target_triggers = ["aim for", "target", "apply to", "which companies", "what companies", "companies should i"]
+    if role and any(w in p for w in target_triggers):
+        cgpa_filter = f" AND jp.min_cgpa <= {min_cgpa}" if min_cgpa is not None else ""
+        sql = f"""
+            SELECT c.company_name, c.industry, jr.role_name,
+                   jp.job_title, jp.package_max_lpa as highest_ctc_lpa, jp.min_cgpa
+            FROM silver.job_postings jp
+            JOIN silver.companies c ON jp.company_id = c.company_id
+            JOIN silver.job_roles jr ON jp.job_role_id = jr.job_role_id
+            WHERE (LOWER(jr.role_name) LIKE '%{role}%' OR LOWER(jr.role_family) LIKE '%{role}%'){cgpa_filter}
+            ORDER BY jp.package_max_lpa DESC
+            LIMIT {limit};
+        """
+        df = con.execute(sql).df()
+        if not df.empty:
+            role_display = role.replace('_', ' ').title()
+            cgpa_text = f" and a minimum CGPA requirement of {min_cgpa}" if min_cgpa else ""
+            return _response(msg_id, now,
+                f"Top companies hiring for **{role_display}** roles{cgpa_text}, ranked by expected CTC:",
+                sql=sql, source="silver.job_postings", df=df)
+
+    # ========================================================================
     # RULE 8: Role-Specific Skill Inquiries (no company)
     # ========================================================================
     if role and "skill_inquiry" in intents:
