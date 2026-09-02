@@ -55,7 +55,9 @@ def column_to_display_name(col: str) -> str:
         "candidate_fit_band": "Candidate Fit",
         "skill_match_percentage": "Skill Match %",
         "skill_gap_percentage": "Skill Gap %",
-        "missing_mandatory_skill_count": "Missing Mandatory Skills"
+        "missing_mandatory_skill_count": "Missing Mandatory Skills",
+        "requirement_type": "Requirement",
+        "min_score": "Min Score (0-100)"
     }
     return mapping.get(col, col.replace("_", " ").title())
 
@@ -212,7 +214,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 break
 
         if "package" in p or "ctc" in p or "salary" in p or "highest paying" in p:
-            sql = f"SELECT company_name, industry, company_type, average_ctc_lpa, highest_ctc_lpa, placements_count FROM semantic.genie_company_intelligence WHERE placements_count > 0 ORDER BY average_ctc_lpa DESC LIMIT {limit};"
+            sql = f"SELECT company_name, industry, average_ctc_lpa, highest_ctc_lpa, placements_count FROM semantic.genie_company_intelligence WHERE placements_count > 0 ORDER BY average_ctc_lpa DESC LIMIT {limit};"
             content = f"Top {limit} corporate recruiters offering the highest average compensation packages (CTC):"
             source_obj = "semantic.genie_company_intelligence"
         elif dept:
@@ -220,7 +222,6 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 SELECT 
                     c.company_name, 
                     c.industry, 
-                    c.company_type,
                     COUNT(p.placement_id) as placements_count,
                     ROUND(AVG(p.ctc_lpa), 2) as average_ctc_lpa,
                     ROUND(MAX(p.ctc_lpa), 2) as highest_ctc_lpa
@@ -228,14 +229,14 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 JOIN semantic.genie_student_intelligence s ON p.student_id = s.student_id
                 JOIN silver.companies c ON p.company_id = c.company_id
                 WHERE UPPER(s.department_code) = '{dept}'
-                GROUP BY c.company_name, c.industry, c.company_type
+                GROUP BY c.company_name, c.industry
                 ORDER BY placements_count DESC
                 LIMIT {limit};
             """
             content = f"Top {limit} hiring companies for {dept} students, ranked by confirmed student placement volume:"
             source_obj = "semantic.genie_company_intelligence (filtered by department)"
         else:
-            sql = f"SELECT company_name, industry, company_type, placements_count, average_ctc_lpa, interview_to_offer_rate FROM semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT {limit};"
+            sql = f"SELECT company_name, industry, placements_count, average_ctc_lpa, interview_to_offer_rate FROM semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT {limit};"
             content = f"Top {limit} hiring recruiters ranked by finalized student placements across all departments and programs:"
             source_obj = "semantic.genie_company_intelligence"
 
@@ -267,14 +268,77 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 5. Skills Analytics (Top demanded / Supply-demand gap)
+    # 4.1 Check for specific target company mentioned in query (e.g. Google, Microsoft, Amazon)
+    matched_comp = con.execute('''
+        SELECT company_id, company_name 
+        FROM silver.companies 
+        WHERE instr(?, lower(company_name)) > 0
+        ORDER BY length(company_name) DESC
+        LIMIT 1;
+    ''', [p]).fetchone()
+
+    if matched_comp and any(w in p for w in ["skill", "skills", "interview", "prepare", "clear", "learn", "criteria", "requirements", "crack"]):
+        comp_id, comp_name = matched_comp
+        sql = f"""
+            SELECT 
+                s.skill_name,
+                s.skill_category,
+                CASE WHEN jrs.is_mandatory THEN 'Mandatory' ELSE 'Preferred' END AS requirement_type,
+                ROUND(AVG(jrs.required_score), 0) AS min_score
+            FROM silver.job_required_skills jrs
+            JOIN silver.job_postings jp ON jrs.job_posting_id = jp.job_posting_id
+            JOIN silver.skills s ON jrs.skill_id = s.skill_id
+            WHERE jp.company_id = '{comp_id}'
+            GROUP BY s.skill_name, s.skill_category, jrs.is_mandatory
+            ORDER BY jrs.is_mandatory DESC, AVG(jrs.importance_weight) DESC
+            LIMIT 8;
+        """
+        df = con.execute(sql).df()
+        if not df.empty:
+            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+            rows = df.to_dict(orient="records")
+            mandatory = [r['skill_name'] for r in rows if r['requirement_type'] == 'Mandatory']
+            preferred = [r['skill_name'] for r in rows if r['requirement_type'] == 'Preferred']
+
+            content = (
+                f"To clear technical interviews at **{comp_name}**, focus on these verified skill requirements from campus job postings:\n\n"
+                f"• **Mandatory Technical Skills**: {', '.join(mandatory[:5]) if mandatory else 'General Engineering Fundamentals'}\n"
+                + (f"• **Preferred / Secondary Skills**: {', '.join(preferred[:4])}\n" if preferred else "")
+                + f"\nCandidates scoring 75+ in these competencies achieve the highest technical clearance rate for {comp_name}."
+            )
+            return {
+                "message_id": msg_id,
+                "role": "assistant",
+                "content": content,
+                "status": "COMPLETED",
+                "created_at": now,
+                "attachment": {
+                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                    "query_text": sql,
+                    "source_object": "silver.job_required_skills",
+                    "recommended_visualization": "TABLE",
+                    "table_data": {
+                        "columns": cols,
+                        "rows": rows,
+                        "total_row_count": len(rows),
+                        "truncated": False
+                    }
+                },
+                "follow_up_suggestions": [
+                    f"What is the average package offered by {comp_name}?",
+                    f"How many students were placed in {comp_name}?",
+                    f"Find candidates matching {comp_name} criteria"
+                ]
+            }
+
+    # 5. General Skills Analytics (Top demanded / Supply-demand gap)
     if "demanded skills" in p or "skill" in p or "technologies" in p:
-        if "low supply" in p or "gap" in p:
-            sql = "SELECT skill_name, skill_category, demand_rank, job_posting_count, student_supply_ratio, market_demand_ratio, skill_supply_demand_gap FROM semantic.genie_skill_market WHERE high_demand_low_supply_flag = TRUE ORDER BY skill_supply_demand_gap DESC LIMIT 10;"
+        if "low supply" in p or "gap" in p or "deficit" in p:
+            sql = "SELECT skill_name, skill_category, demand_rank, job_posting_count, student_supply_ratio, market_demand_ratio, skill_supply_demand_gap FROM semantic.genie_skill_market WHERE high_demand_low_supply_flag = TRUE ORDER BY skill_supply_demand_gap DESC LIMIT 8;"
             content = "Skills with high recruiter demand but low student supply (critical institutional skill gap):"
         else:
-            sql = "SELECT skill_name, skill_category, demand_rank, job_posting_count, student_supply_ratio, market_demand_ratio, skill_supply_demand_gap FROM semantic.genie_skill_market ORDER BY demand_rank ASC LIMIT 10;"
-            content = "Top demanded skills by recruiter job postings across all active campus placement drives:"
+            sql = "SELECT skill_name, skill_category, demand_rank, job_posting_count FROM semantic.genie_skill_market ORDER BY demand_rank ASC LIMIT 8;"
+            content = "Top demanded skills by recruiter job postings across active campus placement drives:"
 
         df = con.execute(sql).df()
         cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
