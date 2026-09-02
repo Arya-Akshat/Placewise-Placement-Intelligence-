@@ -251,55 +251,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 2. Total Institutional Placements / Overall Placement Count
-    if any(w in p for w in ["placed in total", "total placed", "overall placement", "how many students were placed", "how many placed"]):
-        sql = """
-            SELECT 
-                SUM(total_students) AS total_students,
-                SUM(eligible_students) AS eligible_students,
-                SUM(placed_students) AS placed_students,
-                ROUND(SUM(placed_students) * 100.0 / SUM(eligible_students), 2) AS overall_placement_rate,
-                ROUND(AVG(average_ctc_lpa), 2) AS campus_avg_ctc_lpa
-            FROM semantic.genie_department_performance 
-            WHERE graduation_year = 2024;
-        """
-        df = con.execute(sql).df()
-        cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-        rows = df.to_dict(orient="records")
-        r = rows[0] if rows else {}
-        kpis = [
-            {"label": "Total Placed Students", "value": f"{int(r.get('placed_students', 0)):,}"},
-            {"label": "Total Eligible Candidates", "value": f"{int(r.get('eligible_students', 0)):,}"},
-            {"label": "Overall Placement Rate", "value": f"{r.get('overall_placement_rate', 0)}%"},
-            {"label": "Campus Average CTC", "value": f"₹{r.get('campus_avg_ctc_lpa', 0)} LPA"}
-        ]
-        return {
-            "message_id": msg_id,
-            "role": "assistant",
-            "content": f"Across all departments in the 2024 graduating cohort, a total of **{int(r.get('placed_students', 0)):,}** students were placed out of **{int(r.get('eligible_students', 0)):,}** eligible candidates (overall placement rate of **{r.get('overall_placement_rate', 0)}%** with a campus average CTC of **₹{r.get('campus_avg_ctc_lpa', 0)} LPA**).",
-            "status": "COMPLETED",
-            "created_at": now,
-            "attachment": {
-                "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-                "query_text": sql,
-                "source_object": "semantic.genie_department_performance",
-                "recommended_visualization": "KPI",
-                "kpis": kpis,
-                "table_data": {
-                    "columns": cols,
-                    "rows": rows,
-                    "total_row_count": len(rows),
-                    "truncated": False
-                }
-            },
-            "follow_up_suggestions": [
-                "Show placement rate by department in 2024",
-                "Which department improved placement rate?",
-                "Which companies hired the most students?"
-            ]
-        }
-
-    # 3. Company Specific Inquiries (e.g. "how many students are placed in Google?", "how many people google hired from computer science")
+    # 2. Company Specific Inquiries (e.g. "how many students are placed in Google?", "how many people google hired from computer science")
     if matched_comp and any(w in p for w in ["how many", "placed in", "hired by", "hired from", "placements in", "stats", "profile", "offer"]):
         comp_id, comp_name = matched_comp
         dept = extract_department(p)
@@ -422,6 +374,54 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                     "Find candidates matching Google criteria"
                 ]
             }
+
+    # 3. Total Institutional Placements / Overall Placement Count (strictly non-company queries)
+    if not matched_comp and any(w in p for w in ["placed in total", "total placed", "overall placement", "how many students were placed", "how many placed"]):
+        sql = """
+            SELECT 
+                SUM(total_students) AS total_students,
+                SUM(eligible_students) AS eligible_students,
+                SUM(placed_students) AS placed_students,
+                ROUND(SUM(placed_students) * 100.0 / SUM(eligible_students), 2) AS overall_placement_rate,
+                ROUND(AVG(average_ctc_lpa), 2) AS campus_avg_ctc_lpa
+            FROM semantic.genie_department_performance 
+            WHERE graduation_year = 2024;
+        """
+        df = con.execute(sql).df()
+        cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+        rows = df.to_dict(orient="records")
+        r = rows[0] if rows else {}
+        kpis = [
+            {"label": "Total Placed Students", "value": f"{int(r.get('placed_students', 0)):,}"},
+            {"label": "Total Eligible Candidates", "value": f"{int(r.get('eligible_students', 0)):,}"},
+            {"label": "Overall Placement Rate", "value": f"{r.get('overall_placement_rate', 0)}%"},
+            {"label": "Campus Average CTC", "value": f"₹{r.get('campus_avg_ctc_lpa', 0)} LPA"}
+        ]
+        return {
+            "message_id": msg_id,
+            "role": "assistant",
+            "content": f"Across all departments in the 2024 graduating cohort, a total of **{int(r.get('placed_students', 0)):,}** students were placed out of **{int(r.get('eligible_students', 0)):,}** eligible candidates (overall placement rate of **{r.get('overall_placement_rate', 0)}%** with a campus average CTC of **₹{r.get('campus_avg_ctc_lpa', 0)} LPA**).",
+            "status": "COMPLETED",
+            "created_at": now,
+            "attachment": {
+                "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                "query_text": sql,
+                "source_object": "semantic.genie_department_performance",
+                "recommended_visualization": "KPI",
+                "kpis": kpis,
+                "table_data": {
+                    "columns": cols,
+                    "rows": rows,
+                    "total_row_count": len(rows),
+                    "truncated": False
+                }
+            },
+            "follow_up_suggestions": [
+                "Show placement rate by department in 2024",
+                "Which department improved placement rate?",
+                "Which companies hired the most students?"
+            ]
+        }
 
     # 4. Specific Target Company Skill Requirements (e.g. "what skills i need to learn to clear google interview")
     if matched_comp and any(w in p for w in ["skill", "skills", "interview", "prepare", "clear", "learn", "criteria", "requirements", "crack"]):
