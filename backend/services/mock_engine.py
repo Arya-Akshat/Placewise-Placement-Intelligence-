@@ -61,6 +61,36 @@ def column_to_display_name(col: str) -> str:
     }
     return mapping.get(col, col.replace("_", " ").title())
 
+DEPARTMENT_SYNONYMS = {
+    "CSE": ["computer science and engineering", "computer science & engineering", "computer science", "comp sci", "cse", "cs"],
+    "ECE": ["electronics and communication", "electronics & communication", "electronics", "ece", "ec"],
+    "IT": ["information technology", "info tech", "it"],
+    "AIML": ["artificial intelligence & machine learning", "artificial intelligence and machine learning", "artificial intelligence", "ai & ml", "ai and ml", "aiml"],
+    "ME": ["mechanical engineering", "mechanical", "mech", "me"],
+    "CE": ["civil engineering", "civil", "ce"],
+    "EEE": ["electrical and electronics", "electrical & electronics", "electrical", "eee", "ee"],
+    "CH": ["chemical engineering", "chemical", "ch"]
+}
+
+DEPT_NAMES = {
+    "CSE": "Computer Science & Engineering",
+    "ECE": "Electronics & Communication Engineering",
+    "IT": "Information Technology",
+    "AIML": "Artificial Intelligence & ML",
+    "ME": "Mechanical Engineering",
+    "CE": "Civil Engineering",
+    "EEE": "Electrical & Electronics Engineering",
+    "CH": "Chemical Engineering"
+}
+
+def extract_department(text: str):
+    t = text.lower()
+    for dept_code, syns in DEPARTMENT_SYNONYMS.items():
+        for syn in syns:
+            if re.search(r"\b" + re.escape(syn) + r"\b", t):
+                return dept_code
+    return None
+
 def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[str, Any]:
     from backend.services.guardrails import check_guardrails
     p = prompt.strip().lower()
@@ -207,11 +237,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             except Exception:
                 limit = 10
 
-        dept = None
-        for d in ["cse", "ece", "mech", "civil", "aiml", "it", "ee"]:
-            if f" {d} " in f" {p} " or f" {d}" in f" {p}" or f"{d} " in f" {p}":
-                dept = d.upper()
-                break
+        dept = extract_department(p)
 
         if "package" in p or "ctc" in p or "salary" in p or "highest paying" in p:
             sql = f"SELECT company_name, industry, average_ctc_lpa, highest_ctc_lpa, placements_count FROM semantic.genie_company_intelligence WHERE placements_count > 0 ORDER BY average_ctc_lpa DESC LIMIT {limit};"
@@ -233,8 +259,17 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 ORDER BY placements_count DESC
                 LIMIT {limit};
             """
-            content = f"Top {limit} hiring companies for {dept} students, ranked by confirmed student placement volume:"
-            source_obj = "semantic.genie_company_intelligence (filtered by department)"
+            df_temp = con.execute(sql).df()
+            rows_temp = df_temp.to_dict(orient="records")
+            full_dept_name = DEPT_NAMES.get(dept, dept)
+            if any(w in p for w in ["top hirer", "top recruiter", "best hirer", "best recruiter", "who hired the most"]) and not m_limit:
+                top_name = rows_temp[0]['company_name'] if rows_temp else "Unknown"
+                top_count = rows_temp[0]['placements_count'] if rows_temp else 0
+                top_avg = rows_temp[0]['average_ctc_lpa'] if rows_temp else 0
+                content = f"The top hiring recruiter for {full_dept_name} ({dept}) is **{top_name}** with {top_count} student placements (average package ₹{top_avg} LPA). Here are the top {len(rows_temp)} hiring companies for {dept}:"
+            else:
+                content = f"Top {len(rows_temp)} hiring companies for {full_dept_name} ({dept}) students, ranked by confirmed student placement volume:"
+            source_obj = f"semantic.genie_company_intelligence (filtered by {dept})"
         else:
             sql = f"SELECT company_name, industry, placements_count, average_ctc_lpa, interview_to_offer_rate FROM semantic.genie_company_intelligence ORDER BY placements_count DESC LIMIT {limit};"
             content = f"Top {limit} hiring recruiters ranked by finalized student placements across all departments and programs:"
@@ -406,13 +441,10 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             content = "Comparison of CSE and ECE for the 2024 graduating batch: CSE achieved a 51.49% placement rate (1,159 placed), while ECE achieved 48.86% (794 placed)."
             rec_vis = "BAR"
         else:
-            dept = "CSE"
-            for d in ["ece", "mech", "civil", "aiml", "it", "ee"]:
-                if d in p:
-                    dept = d.upper()
-                    break
+            dept = extract_department(p) or "CSE"
+            full_dept_name = DEPT_NAMES.get(dept, dept)
             sql = f"SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, average_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = '{dept}' AND graduation_year = 2024;"
-            content = f"{dept} placement rate for the 2024 graduating cohort was 51.49%, based on 1,159 placed students out of 2,251 eligible students with an average package of ₹8.92 LPA." if dept == 'CSE' else f"{dept} placement performance for the 2024 graduating cohort:"
+            content = f"{dept} placement rate for the 2024 graduating cohort was 51.49%, based on 1,159 placed students out of 2,251 eligible students with an average package of ₹8.92 LPA." if dept == 'CSE' else f"{full_dept_name} ({dept}) placement performance for the 2024 graduating cohort:"
             rec_vis = "KPI"
 
         df = con.execute(sql).df()
