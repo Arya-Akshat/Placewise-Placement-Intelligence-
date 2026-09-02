@@ -25,7 +25,7 @@ export const ChatMessage: React.FC<{ message: Message }> = ({ message }) => {
           className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
             isUser
               ? 'bg-emerald-600 text-white rounded-br-sm shadow-md font-medium'
-              : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-tl-sm shadow-md'
+              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-sm shadow-sm transition-colors'
           }`}
         >
           {message.content}
@@ -54,13 +54,13 @@ export const ChatMessage: React.FC<{ message: Message }> = ({ message }) => {
             )}
 
             {message.status === 'FAILED' && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-red-400">
+              <div className="flex items-center gap-2 mt-2 text-xs text-red-500 dark:text-red-400">
                 <AlertCircle className="w-4 h-4" />
                 <span>Failed to complete query.</span>
                 <button
                   disabled={isSending}
                   onClick={retryLastMessage}
-                  className="flex items-center gap-1 font-semibold text-red-300 hover:text-white underline ml-1"
+                  className="flex items-center gap-1 font-semibold text-red-600 dark:text-red-300 hover:underline ml-1"
                 >
                   <RefreshCw className="w-3 h-3" /> Retry
                 </button>
@@ -75,7 +75,7 @@ export const ChatMessage: React.FC<{ message: Message }> = ({ message }) => {
                     key={i}
                     disabled={isSending}
                     onClick={() => submitMessage(sug)}
-                    className="px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-xs text-slate-300 hover:text-emerald-300 transition disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/80 text-xs text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-300 transition disabled:opacity-50 shadow-sm"
                   >
                     {sug}
                   </button>
@@ -87,7 +87,7 @@ export const ChatMessage: React.FC<{ message: Message }> = ({ message }) => {
       </div>
 
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0 mt-0.5 shadow-sm">
+        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0 mt-0.5 shadow-sm transition-colors">
           <User className="w-4 h-4" />
         </div>
       )}

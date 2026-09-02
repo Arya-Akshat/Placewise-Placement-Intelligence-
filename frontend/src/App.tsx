@@ -1,4 +1,5 @@
 import React from 'react';
+import { ThemeProvider } from './context/ThemeContext';
 import { ChatProvider, useChat } from './context/ChatContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { ChatPage } from './pages/ChatPage';
@@ -15,8 +16,10 @@ const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <ChatProvider>
-      <AppContent />
-    </ChatProvider>
+    <ThemeProvider>
+      <ChatProvider>
+        <AppContent />
+      </ChatProvider>
+    </ThemeProvider>
   );
 };

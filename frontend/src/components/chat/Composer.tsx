@@ -28,7 +28,7 @@ export const Composer: React.FC = () => {
   };
 
   return (
-    <div className="border-t border-slate-800/80 bg-slate-950/80 backdrop-blur-md p-4 sticky bottom-0 w-full">
+    <div className="border-t border-slate-200 dark:border-slate-800/80 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md p-4 sticky bottom-0 w-full transition-colors">
       <div className="max-w-4xl mx-auto">
         <form onSubmit={handleSubmit} className="relative flex items-center">
           <textarea
@@ -39,7 +39,7 @@ export const Composer: React.FC = () => {
             onChange={e => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isSending ? 'Placewise is processing...' : 'Ask Placewise anything about placements, companies, or skills... (Enter to send)'}
-            className="w-full bg-slate-900 border border-slate-700/80 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/80 rounded-xl pl-4 pr-12 py-3 text-sm text-slate-100 placeholder-slate-500 resize-none outline-none transition disabled:opacity-50"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700/80 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/80 rounded-xl pl-4 pr-12 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 resize-none outline-none transition disabled:opacity-50 shadow-sm"
           />
           <button
             type="submit"
@@ -50,7 +50,7 @@ export const Composer: React.FC = () => {
             <Send className="w-4 h-4" />
           </button>
         </form>
-        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 px-1">
+        <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-500 mt-2 px-1">
           <span>Grounded in governed Placewise semantic views</span>
           <span className="hidden sm:inline">Shift + Enter for new line</span>
         </div>

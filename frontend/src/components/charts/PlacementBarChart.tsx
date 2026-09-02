@@ -19,13 +19,13 @@ export const PlacementBarChart: React.FC<{ data: TableData }> = ({ data }) => {
   const yLabel = data.columns.find(c => c.name === yCol)?.display_name || yCol;
 
   return (
-    <div className="w-full h-64 bg-slate-900 border border-slate-800 rounded-xl p-4 my-3 shadow-md">
-      <h4 className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">{yLabel} Breakdown</h4>
+    <div className="w-full h-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 my-3 shadow-sm transition-colors">
+      <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">{yLabel} Breakdown</h4>
       <ResponsiveContainer width="100%" height="88%">
         <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-          <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 11 }} interval={0} angle={-25} textAnchor="end" />
-          <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" className="dark:stroke-slate-700" opacity={0.5} />
+          <XAxis dataKey="name" stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" />
+          <YAxis stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 11 }} />
           <Tooltip
             contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#f8fafc', fontSize: '12px' }}
             formatter={(val: any) => [`${val}`, yLabel]}

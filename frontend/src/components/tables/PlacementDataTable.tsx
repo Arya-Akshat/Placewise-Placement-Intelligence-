@@ -67,11 +67,11 @@ export const PlacementDataTable: React.FC<{ data: TableData }> = ({ data }) => {
   };
 
   return (
-    <div className="w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden my-3 shadow-md">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800">
-        <div className="text-xs text-slate-400 font-medium">
+    <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden my-3 shadow-sm transition-colors">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
           {data.truncated ? (
-            <span className="text-amber-400 font-semibold">
+            <span className="text-amber-600 dark:text-amber-400 font-semibold">
               Showing {data.rows.length} of {data.total_row_count.toLocaleString()} results (Safely Bounded)
             </span>
           ) : (
@@ -80,7 +80,7 @@ export const PlacementDataTable: React.FC<{ data: TableData }> = ({ data }) => {
         </div>
         <button
           onClick={exportCsv}
-          className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-emerald-400 font-medium px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 transition"
+          className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition"
         >
           <Download className="w-3.5 h-3.5" />
           Export CSV
@@ -90,26 +90,26 @@ export const PlacementDataTable: React.FC<{ data: TableData }> = ({ data }) => {
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-950/60 border-b border-slate-800 text-slate-400">
+            <tr className="bg-slate-100/80 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
               {data.columns.map(col => (
                 <th
                   key={col.name}
                   onClick={() => handleSort(col.name)}
-                  className="px-4 py-3 font-semibold cursor-pointer hover:text-emerald-400 select-none transition whitespace-nowrap"
+                  className="px-4 py-3 font-semibold cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 select-none transition whitespace-nowrap"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>{col.display_name}</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-600" />
+                    <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
             {paginatedRows.map((row, idx) => (
-              <tr key={idx} className="hover:bg-slate-800/40 transition">
+              <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                 {data.columns.map(col => (
-                  <td key={col.name} className="px-4 py-2.5 text-slate-200 whitespace-nowrap">
+                  <td key={col.name} className="px-4 py-2.5 text-slate-800 dark:text-slate-200 whitespace-nowrap font-mono text-[11px]">
                     {formatCell(col.name, row[col.name])}
                   </td>
                 ))}
@@ -120,7 +120,7 @@ export const PlacementDataTable: React.FC<{ data: TableData }> = ({ data }) => {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-950/50 border-t border-slate-800 text-xs text-slate-400">
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
           <span>
             Page {currentPage} of {totalPages}
           </span>
@@ -128,14 +128,14 @@ export const PlacementDataTable: React.FC<{ data: TableData }> = ({ data }) => {
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="p-1 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition text-slate-700 dark:text-slate-300"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="p-1 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition text-slate-700 dark:text-slate-300"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
