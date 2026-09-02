@@ -809,8 +809,35 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
     if "placement rate" in p or "placed in 2024" in p or "improved" in p or dept is not None:
         if "improved" in p:
             sql = "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, placement_rate_yoy, placement_rate_change_points FROM semantic.genie_department_performance WHERE graduation_year = 2024 AND placement_rate_change_points > 0 ORDER BY placement_rate_change_points DESC;"
-            content = "Departments showing positive year-over-year placement rate improvements in the 2024 cohort:"
-            rec_vis = "BAR"
+            df = con.execute(sql).df()
+            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+            rows = df.to_dict(orient="records")
+            impr_list = [f"**{r['department_code']}** (+{r['placement_rate_change_points']} pp to {r['placement_rate']}%)" for r in rows]
+            content = f"In the 2024 graduating cohort, {len(rows)} departments recorded positive year-over-year placement rate improvements: {', '.join(impr_list)}."
+            return {
+                "message_id": msg_id,
+                "role": "assistant",
+                "content": content,
+                "status": "COMPLETED",
+                "created_at": now,
+                "attachment": {
+                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                    "query_text": sql,
+                    "source_object": "semantic.genie_department_performance",
+                    "recommended_visualization": "BAR",
+                    "table_data": {
+                        "columns": cols,
+                        "rows": rows,
+                        "total_row_count": len(rows),
+                        "truncated": False
+                    }
+                },
+                "follow_up_suggestions": [
+                    "Compare CSE and Mechanical placement rates",
+                    "What is the placement rate for CSE in 2024?",
+                    "Which companies hired the most students?"
+                ]
+            }
         else:
             target_dept = dept or "CSE"
             full_dept_name = DEPT_DISPLAY_NAMES.get(target_dept, target_dept)
@@ -889,14 +916,14 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
     return {
         "message_id": msg_id,
         "role": "assistant",
-        "content": f"I analyzed your query: *\"{prompt}\"*. To provide precise placement intelligence, please select a specific analytical domain or choose from the suggested questions below:",
+        "content": f"I couldn't match specific entities or metrics for *\"{prompt}\"*. You can explore placement rates, top recruiters, highest packages, or candidate matching using the quick queries below:",
         "status": "COMPLETED",
         "created_at": now,
         "follow_up_suggestions": [
             "What is the placement rate for CSE in 2024?",
             "Which companies hired the most students?",
             "What was the highest package in 2024?",
-            "Find strong candidates for Data Engineering",
-            "Which departments improved placement rate?"
+            "Which departments improved placement rate?",
+            "Find strong candidates for Data Engineering"
         ]
     }
