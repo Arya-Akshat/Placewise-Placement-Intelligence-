@@ -2,11 +2,12 @@
 PLACEWISE — Governed Local Analytical Engine
 ============================================
 Grounded semantic query processor executing certified SQL directly against
-the local DuckDB analytical database (reflecting Databricks Unity Catalog).
+the local DuckDB analytical database using deep entity and intent extraction.
 """
 
 import os, uuid, time, re, duckdb
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
+from backend.services.entity_extractor import parse_query_semantics, DEPT_DISPLAY_NAMES
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "../../data/placewise.duckdb")
 
@@ -69,47 +70,6 @@ def column_to_display_name(col: str) -> str:
     }
     return mapping.get(col, col.replace("_", " ").title())
 
-DEPARTMENT_SYNONYMS = {
-    "CSE": ["computer science and engineering", "computer science & engineering", "computer science", "comp sci", "cse", "cs"],
-    "ECE": ["electronics and communication", "electronics & communication", "electronics", "ece", "ec"],
-    "IT": ["information technology", "info tech", "it branch", "it dept", "it department"],
-    "AIML": ["artificial intelligence & machine learning", "artificial intelligence and machine learning", "artificial intelligence", "ai & ml", "ai and ml", "aiml"],
-    "ME": ["mechanical engineering", "mechanical", "mech", "me branch", "me dept"],
-    "CE": ["civil engineering", "civil", "ce branch", "ce dept"],
-    "EEE": ["electrical and electronics", "electrical & electronics", "electrical", "eee", "ee branch", "ee dept"],
-    "CH": ["chemical engineering", "chemical", "chem", "ch branch", "ch dept"]
-}
-
-DEPT_NAMES = {
-    "CSE": "Computer Science & Engineering",
-    "ECE": "Electronics & Communication Engineering",
-    "IT": "Information Technology",
-    "AIML": "Artificial Intelligence & ML",
-    "ME": "Mechanical Engineering",
-    "CE": "Civil Engineering",
-    "EEE": "Electrical & Electronics Engineering",
-    "CH": "Chemical Engineering"
-}
-
-def extract_department(text: str) -> Optional[str]:
-    t = text.lower()
-    for dept_code, syns in DEPARTMENT_SYNONYMS.items():
-        for syn in syns:
-            if re.search(r"\b" + re.escape(syn) + r"\b", t):
-                return dept_code
-    return None
-
-def extract_all_departments(text: str) -> List[str]:
-    t = text.lower()
-    found = []
-    for dept_code, syns in DEPARTMENT_SYNONYMS.items():
-        for syn in syns:
-            if re.search(r"\b" + re.escape(syn) + r"\b", t):
-                if dept_code not in found:
-                    found.append(dept_code)
-                break
-    return found
-
 def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[str, Any]:
     from backend.services.guardrails import check_guardrails
     p = prompt.strip().lower()
@@ -151,9 +111,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    con = get_mock_db()
-
-    # 0.2 Clarification checks for ambiguous / underspecified requests
+    # 0.2 Interactive Clarifications for underspecified questions
     if p in ["what is the placement rate", "what is the placement rate?", "placement rate"]:
         return {
             "message_id": msg_id,
@@ -188,26 +146,200 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             }
         }
 
-    # Match target company if explicitly present in prompt
-    matched_comp = con.execute('''
-        SELECT company_id, company_name 
-        FROM silver.companies 
-        WHERE instr(?, lower(company_name)) > 0
-          AND length(company_name) >= 3
-        ORDER BY length(company_name) DESC
-        LIMIT 1;
-    ''', [p]).fetchone()
+    # Semantic Entity and Constraints Parsing
+    sem = parse_query_semantics(prompt)
+    comp = sem["company"]
+    dept = sem["department"]
+    all_depts = sem["all_departments"]
+    role = sem["role"]
+    thresholds = sem["thresholds"]
+    limit = thresholds.get("limit", 10)
+    min_ctc = thresholds.get("min_ctc_lpa")
+    min_cgpa = thresholds.get("min_cgpa")
+    comp_type = thresholds.get("company_type")
 
-    # Extract limit if specified (e.g. "top 5", "top 10")
-    limit = 10
-    m_limit = re.search(r"\btop\s+(\d+)\b", p)
-    if m_limit:
-        try:
-            limit = int(m_limit.group(1))
-        except Exception:
-            limit = 10
+    con = get_mock_db()
 
-    # 1. Highest Package Inquiries
+    # 1. Company-Specific Inquiries
+    if comp:
+        comp_id, comp_name = comp
+
+        # 1.1 Company Required Skills / Interview Prep
+        if any(w in p for w in ["skill", "skills", "interview", "prepare", "clear", "learn", "criteria", "requirements", "crack"]):
+            sql = f"""
+                SELECT 
+                    s.skill_name,
+                    s.skill_category,
+                    CASE WHEN jrs.is_mandatory THEN 'Mandatory' ELSE 'Preferred' END AS requirement_type,
+                    ROUND(AVG(jrs.required_score), 0) AS min_score
+                FROM silver.job_required_skills jrs
+                JOIN silver.job_postings jp ON jrs.job_posting_id = jp.job_posting_id
+                JOIN silver.skills s ON jrs.skill_id = s.skill_id
+                WHERE jp.company_id = '{comp_id}'
+                GROUP BY s.skill_name, s.skill_category, jrs.is_mandatory
+                ORDER BY jrs.is_mandatory DESC, AVG(jrs.importance_weight) DESC
+                LIMIT 8;
+            """
+            df = con.execute(sql).df()
+            if not df.empty:
+                cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+                rows = df.to_dict(orient="records")
+                mandatory = [r['skill_name'] for r in rows if r['requirement_type'] == 'Mandatory']
+                preferred = [r['skill_name'] for r in rows if r['requirement_type'] == 'Preferred']
+
+                content = (
+                    f"To clear technical interviews at **{comp_name}**, focus on these verified skill requirements from campus job postings:\n\n"
+                    f"• **Mandatory Technical Skills**: {', '.join(mandatory[:5]) if mandatory else 'General Engineering Fundamentals'}\n"
+                    + (f"• **Preferred / Secondary Skills**: {', '.join(preferred[:4])}\n" if preferred else "")
+                    + f"\nCandidates scoring 75+ in these competencies achieve the highest technical clearance rate for {comp_name}."
+                )
+                return {
+                    "message_id": msg_id,
+                    "role": "assistant",
+                    "content": content,
+                    "status": "COMPLETED",
+                    "created_at": now,
+                    "attachment": {
+                        "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                        "query_text": sql,
+                        "source_object": "silver.job_required_skills",
+                        "recommended_visualization": "TABLE",
+                        "table_data": {
+                            "columns": cols,
+                            "rows": rows,
+                            "total_row_count": len(rows),
+                            "truncated": False
+                        }
+                    },
+                    "follow_up_suggestions": [
+                        f"What is the average package offered by {comp_name}?",
+                        f"How many students were placed in {comp_name}?",
+                        f"Find candidates matching {comp_name} criteria"
+                    ]
+                }
+
+        # 1.2 Company Placement Volume & Package (Department-filtered or Campus-wide)
+        if any(w in p for w in ["how many", "placed", "hired", "recruit", "package", "ctc", "salary", "stats", "profile"]):
+            if dept:
+                full_dept_name = DEPT_DISPLAY_NAMES.get(dept, dept)
+                sql = f"""
+                    SELECT 
+                        c.company_name,
+                        s.department_code,
+                        COUNT(p.placement_id) as placements_count,
+                        ROUND(AVG(p.ctc_lpa), 2) as average_ctc_lpa,
+                        ROUND(MAX(p.ctc_lpa), 2) as highest_ctc_lpa
+                    FROM silver.placements p
+                    JOIN semantic.genie_student_intelligence s ON p.student_id = s.student_id
+                    JOIN silver.companies c ON p.company_id = c.company_id
+                    WHERE c.company_id = '{comp_id}' AND UPPER(s.department_code) = '{dept}'
+                    GROUP BY c.company_name, s.department_code;
+                """
+                df = con.execute(sql).df()
+                tot_hires = con.execute(f"SELECT placements_count FROM semantic.genie_company_intelligence WHERE company_id = '{comp_id}';").fetchone()
+                tot = tot_hires[0] if tot_hires else 0
+
+                if not df.empty:
+                    rows = df.to_dict(orient="records")
+                    r = rows[0]
+                    cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+                    kpis = [
+                        {"label": f"{dept} Placements", "value": f"{r.get('placements_count', 0)}"},
+                        {"label": f"Average CTC ({dept})", "value": f"₹{r.get('average_ctc_lpa', 0)} LPA"},
+                        {"label": f"Highest CTC ({dept})", "value": f"₹{r.get('highest_ctc_lpa', 0)} LPA"},
+                        {"label": "Campus-Wide Total", "value": f"{tot} Placements"}
+                    ]
+                    content = (
+                        f"**{comp_name}** hired **{r.get('placements_count', 0)}** students from **{full_dept_name} ({dept})** "
+                        f"with an average compensation of **₹{r.get('average_ctc_lpa', 0)} LPA** (highest offer: **₹{r.get('highest_ctc_lpa', 0)} LPA**). "
+                        f"Across the entire institution (all departments), {comp_name} recruited **{tot}** students."
+                    )
+                    return {
+                        "message_id": msg_id,
+                        "role": "assistant",
+                        "content": content,
+                        "status": "COMPLETED",
+                        "created_at": now,
+                        "attachment": {
+                            "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                            "query_text": sql,
+                            "source_object": f"silver.placements (filtered by {comp_name} and {dept})",
+                            "recommended_visualization": "KPI",
+                            "kpis": kpis,
+                            "table_data": {
+                                "columns": cols,
+                                "rows": rows,
+                                "total_row_count": len(rows),
+                                "truncated": False
+                            }
+                        },
+                        "follow_up_suggestions": [
+                            f"What skills does {comp_name} require?",
+                            f"Which companies hired more {dept} students than {comp_name}?",
+                            f"Show all department hires for {comp_name}"
+                        ]
+                    }
+                else:
+                    return {
+                        "message_id": msg_id,
+                        "role": "assistant",
+                        "content": f"**{comp_name}** did not record any finalized student placements from **{full_dept_name} ({dept})** in the current season (out of {tot} campus-wide hires).",
+                        "status": "COMPLETED",
+                        "created_at": now
+                    }
+
+            # Campus-wide across all departments
+            sql = f"""
+                SELECT 
+                    company_name, 
+                    industry, 
+                    company_type, 
+                    placements_count, 
+                    openings_count, 
+                    average_ctc_lpa, 
+                    highest_ctc_lpa, 
+                    interview_to_offer_rate
+                FROM semantic.genie_company_intelligence
+                WHERE company_id = '{comp_id}';
+            """
+            df = con.execute(sql).df()
+            if not df.empty:
+                cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+                rows = df.to_dict(orient="records")
+                r = rows[0]
+                kpis = [
+                    {"label": "Placements Count", "value": f"{r.get('placements_count', 0)}"},
+                    {"label": "Average Package", "value": f"₹{r.get('average_ctc_lpa', 0)} LPA"},
+                    {"label": "Highest Package", "value": f"₹{r.get('highest_ctc_lpa', 0)} LPA"},
+                    {"label": "Interview Conversion", "value": f"{r.get('interview_to_offer_rate', 0)}%"}
+                ]
+                return {
+                    "message_id": msg_id,
+                    "role": "assistant",
+                    "content": f"**{comp_name}** ({r.get('industry', 'Technology')}) finalized **{r.get('placements_count', 0)}** campus placements with an average CTC of **₹{r.get('average_ctc_lpa', 0)} LPA** (highest offer: **₹{r.get('highest_ctc_lpa', 0)} LPA**) and an interview conversion rate of **{r.get('interview_to_offer_rate', 0)}%**.",
+                    "status": "COMPLETED",
+                    "created_at": now,
+                    "attachment": {
+                        "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                        "query_text": sql,
+                        "source_object": "semantic.genie_company_intelligence",
+                        "recommended_visualization": "KPI",
+                        "kpis": kpis,
+                        "table_data": {
+                            "columns": cols,
+                            "rows": rows,
+                            "total_row_count": len(rows),
+                            "truncated": False
+                        }
+                    },
+                    "follow_up_suggestions": [
+                        f"What skills are required for {comp_name}?",
+                        f"How many students did {comp_name} hire from CSE?",
+                        "Which companies offer higher packages than Google?"
+                    ]
+                }
+
+    # 2. Highest Package Inquiries
     if any(w in p for w in ["highest package", "highest ctc", "maximum salary", "highest salary", "max package", "top package"]):
         sql = f"""
             SELECT 
@@ -220,7 +352,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             JOIN silver.companies c ON p.company_id = c.company_id
             GROUP BY c.company_name, c.industry
             ORDER BY highest_package_lpa DESC
-            LIMIT {limit if m_limit else 5};
+            LIMIT {limit};
         """
         df = con.execute(sql).df()
         cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
@@ -251,132 +383,8 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 2. Company Specific Inquiries (e.g. "how many students are placed in Google?", "how many people google hired from computer science")
-    if matched_comp and any(w in p for w in ["how many", "placed in", "hired by", "hired from", "placements in", "stats", "profile", "offer"]):
-        comp_id, comp_name = matched_comp
-        dept = extract_department(p)
-
-        if dept:
-            full_dept_name = DEPT_NAMES.get(dept, dept)
-            sql = f"""
-                SELECT 
-                    c.company_name,
-                    s.department_code,
-                    COUNT(p.placement_id) as placements_count,
-                    ROUND(AVG(p.ctc_lpa), 2) as average_ctc_lpa,
-                    ROUND(MAX(p.ctc_lpa), 2) as highest_ctc_lpa
-                FROM silver.placements p
-                JOIN semantic.genie_student_intelligence s ON p.student_id = s.student_id
-                JOIN silver.companies c ON p.company_id = c.company_id
-                WHERE c.company_id = '{comp_id}' AND UPPER(s.department_code) = '{dept}'
-                GROUP BY c.company_name, s.department_code;
-            """
-            df = con.execute(sql).df()
-            total_campus_hires = con.execute(f"SELECT placements_count FROM semantic.genie_company_intelligence WHERE company_id = '{comp_id}';").fetchone()
-            tot = total_campus_hires[0] if total_campus_hires else 0
-
-            if not df.empty:
-                rows = df.to_dict(orient="records")
-                r = rows[0]
-                cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-                kpis = [
-                    {"label": f"{dept} Placements", "value": f"{r.get('placements_count', 0)}"},
-                    {"label": f"Average CTC ({dept})", "value": f"₹{r.get('average_ctc_lpa', 0)} LPA"},
-                    {"label": f"Highest CTC ({dept})", "value": f"₹{r.get('highest_ctc_lpa', 0)} LPA"},
-                    {"label": "Campus-Wide Total", "value": f"{tot} Placements"}
-                ]
-                content = (
-                    f"**{comp_name}** hired **{r.get('placements_count', 0)}** students from **{full_dept_name} ({dept})** "
-                    f"with an average compensation of **₹{r.get('average_ctc_lpa', 0)} LPA** (highest offer: **₹{r.get('highest_ctc_lpa', 0)} LPA**). "
-                    f"Across the entire institution (all departments), {comp_name} recruited **{tot}** students."
-                )
-                return {
-                    "message_id": msg_id,
-                    "role": "assistant",
-                    "content": content,
-                    "status": "COMPLETED",
-                    "created_at": now,
-                    "attachment": {
-                        "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-                        "query_text": sql,
-                        "source_object": f"silver.placements (filtered by {comp_name} and {dept})",
-                        "recommended_visualization": "KPI",
-                        "kpis": kpis,
-                        "table_data": {
-                            "columns": cols,
-                            "rows": rows,
-                            "total_row_count": len(rows),
-                            "truncated": False
-                        }
-                    },
-                    "follow_up_suggestions": [
-                        f"What skills does {comp_name} require?",
-                        f"Which companies hired more {dept} students than {comp_name}?",
-                        f"Show all department hires for {comp_name}"
-                    ]
-                }
-            else:
-                return {
-                    "message_id": msg_id,
-                    "role": "assistant",
-                    "content": f"**{comp_name}** did not record any finalized student placements from **{full_dept_name} ({dept})** in the current season (out of {tot} campus-wide hires).",
-                    "status": "COMPLETED",
-                    "created_at": now
-                }
-
-        # Company-wide across all departments
-        sql = f"""
-            SELECT 
-                company_name, 
-                industry, 
-                company_type, 
-                placements_count, 
-                openings_count, 
-                average_ctc_lpa, 
-                highest_ctc_lpa, 
-                interview_to_offer_rate
-            FROM semantic.genie_company_intelligence
-            WHERE company_id = '{comp_id}';
-        """
-        df = con.execute(sql).df()
-        if not df.empty:
-            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-            rows = df.to_dict(orient="records")
-            r = rows[0]
-            kpis = [
-                {"label": "Placements Count", "value": f"{r.get('placements_count', 0)}"},
-                {"label": "Average Package", "value": f"₹{r.get('average_ctc_lpa', 0)} LPA"},
-                {"label": "Highest Package", "value": f"₹{r.get('highest_ctc_lpa', 0)} LPA"},
-                {"label": "Interview Conversion", "value": f"{r.get('interview_to_offer_rate', 0)}%"}
-            ]
-            return {
-                "message_id": msg_id,
-                "role": "assistant",
-                "content": f"**{comp_name}** ({r.get('industry', 'Technology')}) finalized **{r.get('placements_count', 0)}** campus placements with an average CTC of **₹{r.get('average_ctc_lpa', 0)} LPA** (highest offer: **₹{r.get('highest_ctc_lpa', 0)} LPA**) and an interview conversion rate of **{r.get('interview_to_offer_rate', 0)}%**.",
-                "status": "COMPLETED",
-                "created_at": now,
-                "attachment": {
-                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-                    "query_text": sql,
-                    "source_object": "semantic.genie_company_intelligence",
-                    "recommended_visualization": "KPI",
-                    "kpis": kpis,
-                    "table_data": {
-                        "columns": cols,
-                        "rows": rows,
-                        "total_row_count": len(rows),
-                        "truncated": False
-                    }
-                },
-                "follow_up_suggestions": [
-                    f"What skills are required for {comp_name}?",
-                    "Which companies offer higher packages than Google?",
-                    "Find candidates matching Google criteria"
-                ]
-            }
-
-    # 3. Total Institutional Placements / Overall Placement Count (strictly non-company queries)
-    if not matched_comp and any(w in p for w in ["placed in total", "total placed", "overall placement", "how many students were placed", "how many placed"]):
+    # 3. Total Institutional Placements / Overall Placement Count
+    if not comp and any(w in p for w in ["placed in total", "total placed", "overall placement", "how many students were placed", "how many placed"]):
         sql = """
             SELECT 
                 SUM(total_students) AS total_students,
@@ -423,65 +431,8 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 4. Specific Target Company Skill Requirements (e.g. "what skills i need to learn to clear google interview")
-    if matched_comp and any(w in p for w in ["skill", "skills", "interview", "prepare", "clear", "learn", "criteria", "requirements", "crack"]):
-        comp_id, comp_name = matched_comp
-        sql = f"""
-            SELECT 
-                s.skill_name,
-                s.skill_category,
-                CASE WHEN jrs.is_mandatory THEN 'Mandatory' ELSE 'Preferred' END AS requirement_type,
-                ROUND(AVG(jrs.required_score), 0) AS min_score
-            FROM silver.job_required_skills jrs
-            JOIN silver.job_postings jp ON jrs.job_posting_id = jp.job_posting_id
-            JOIN silver.skills s ON jrs.skill_id = s.skill_id
-            WHERE jp.company_id = '{comp_id}'
-            GROUP BY s.skill_name, s.skill_category, jrs.is_mandatory
-            ORDER BY jrs.is_mandatory DESC, AVG(jrs.importance_weight) DESC
-            LIMIT 8;
-        """
-        df = con.execute(sql).df()
-        if not df.empty:
-            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-            rows = df.to_dict(orient="records")
-            mandatory = [r['skill_name'] for r in rows if r['requirement_type'] == 'Mandatory']
-            preferred = [r['skill_name'] for r in rows if r['requirement_type'] == 'Preferred']
-
-            content = (
-                f"To clear technical interviews at **{comp_name}**, focus on these verified skill requirements from campus job postings:\n\n"
-                f"• **Mandatory Technical Skills**: {', '.join(mandatory[:5]) if mandatory else 'General Engineering Fundamentals'}\n"
-                + (f"• **Preferred / Secondary Skills**: {', '.join(preferred[:4])}\n" if preferred else "")
-                + f"\nCandidates scoring 75+ in these competencies achieve the highest technical clearance rate for {comp_name}."
-            )
-            return {
-                "message_id": msg_id,
-                "role": "assistant",
-                "content": content,
-                "status": "COMPLETED",
-                "created_at": now,
-                "attachment": {
-                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-                    "query_text": sql,
-                    "source_object": "silver.job_required_skills",
-                    "recommended_visualization": "TABLE",
-                    "table_data": {
-                        "columns": cols,
-                        "rows": rows,
-                        "total_row_count": len(rows),
-                        "truncated": False
-                    }
-                },
-                "follow_up_suggestions": [
-                    f"What is the average package offered by {comp_name}?",
-                    f"How many students were placed in {comp_name}?",
-                    f"Find candidates matching {comp_name} criteria"
-                ]
-            }
-
-    # 5. Compensation Threshold Queries (e.g. "companies offering more than 20 LPA")
-    m_sal = re.search(r"(?:more than|greater than|above|>|>=)\s*(\d+(?:\.\d+)?)\s*(?:lpa|lakh)?", p)
-    if m_sal and any(w in p for w in ["package", "ctc", "salary", "companies", "recruiter", "hirer"]):
-        sal_threshold = float(m_sal.group(1))
+    # 4. Salary / Compensation Threshold Queries (e.g. "companies offering more than 20 LPA")
+    if min_ctc is not None:
         sql = f"""
             SELECT 
                 company_name, 
@@ -491,7 +442,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 highest_ctc_lpa, 
                 placements_count
             FROM semantic.genie_company_intelligence
-            WHERE highest_ctc_lpa >= {sal_threshold}
+            WHERE highest_ctc_lpa >= {min_ctc}
             ORDER BY average_ctc_lpa DESC
             LIMIT {limit};
         """
@@ -501,7 +452,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
         return {
             "message_id": msg_id,
             "role": "assistant",
-            "content": f"Found {len(rows)} recruiters offering compensation packages exceeding **₹{sal_threshold} LPA**, ranked by average CTC:",
+            "content": f"Found {len(rows)} recruiters offering compensation packages exceeding **₹{min_ctc} LPA**, ranked by average CTC:",
             "status": "COMPLETED",
             "created_at": now,
             "attachment": {
@@ -522,13 +473,8 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 6. Company Type Filtering (e.g. "product companies", "service companies", "startups")
-    if any(w in p for w in ["product compan", "service compan", "startup", "consulting compan"]):
-        target_type = "PRODUCT"
-        if "service" in p: target_type = "SERVICES"
-        elif "startup" in p: target_type = "STARTUP"
-        elif "consulting" in p: target_type = "CONSULTING"
-
+    # 5. Company Type Filtering (e.g. "show product companies that hired students")
+    if comp_type:
         sql = f"""
             SELECT 
                 company_name, 
@@ -537,7 +483,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 average_ctc_lpa, 
                 highest_ctc_lpa
             FROM semantic.genie_company_intelligence
-            WHERE company_type = '{target_type}'
+            WHERE company_type = '{comp_type}'
             ORDER BY placements_count DESC
             LIMIT {limit};
         """
@@ -547,7 +493,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
         return {
             "message_id": msg_id,
             "role": "assistant",
-            "content": f"Top hiring **{target_type}** recruiters ranked by finalized student placements volume:",
+            "content": f"Top hiring **{comp_type}** recruiters ranked by finalized student placements volume:",
             "status": "COMPLETED",
             "created_at": now,
             "attachment": {
@@ -564,15 +510,14 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             }
         }
 
-    # 7. Department Metric Comparisons (e.g. "compare placement rates between CSE and Mechanical", "how does that compare with ece")
-    depts_mentioned = extract_all_departments(p)
+    # 6. Department Comparisons
     if "compare with ece" in p:
-        depts_mentioned = ["CSE", "ECE"]
-    elif len(depts_mentioned) == 1 and any(w in p for w in ["compare", "vs", "difference"]):
-        depts_mentioned = ["CSE", depts_mentioned[0]]
+        all_depts = ["CSE", "ECE"]
+    elif len(all_depts) == 1 and any(w in p for w in ["compare", "vs", "difference"]):
+        all_depts = ["CSE", all_depts[0]]
 
-    if len(depts_mentioned) >= 2 and any(w in p for w in ["compare", "vs", "difference", "between"]):
-        dept_list_str = ", ".join([f"'{d}'" for d in depts_mentioned])
+    if len(all_depts) >= 2 and any(w in p for w in ["compare", "vs", "difference", "between"]):
+        dept_list_str = ", ".join([f"'{d}'" for d in all_depts])
         sql = f"""
             SELECT 
                 department_code, 
@@ -590,11 +535,11 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
         df = con.execute(sql).df()
         cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
         rows = df.to_dict(orient="records")
-        if "CSE" in depts_mentioned and "ECE" in depts_mentioned and len(depts_mentioned) == 2:
+        if "CSE" in all_depts and "ECE" in all_depts and len(all_depts) == 2:
             content = "Comparison of CSE and ECE for the 2024 graduating batch: CSE achieved a 51.49% placement rate (1,159 placed), while ECE achieved 48.86% (794 placed)."
         else:
             summary_points = [f"**{r['department_code']}**: {r['placement_rate']}% placement rate ({r['placed_students']:,} placed, avg ₹{r['average_ctc_lpa']} LPA)" for r in rows]
-            content = f"Placement performance comparison for 2024 cohort between {', '.join(depts_mentioned)}:\n\n" + "\n".join([f"• {sp}" for sp in summary_points])
+            content = f"Placement performance comparison for 2024 cohort between {', '.join(all_depts)}:\n\n" + "\n".join([f"• {sp}" for sp in summary_points])
 
         return {
             "message_id": msg_id,
@@ -616,7 +561,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             }
         }
 
-    # 8. Department Salary Ranking (e.g. "which department has the highest average salary")
+    # 7. Department Salary Ranking
     if any(w in p for w in ["highest average salary", "highest average package", "highest salary by department", "best salary department", "highest paying department"]):
         sql = """
             SELECT 
@@ -654,11 +599,52 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             }
         }
 
+    # 8. Role-Specific Skill Inquiries
+    if role and any(w in p for w in ["skill", "skills", "learn", "require", "demand", "needed"]):
+        sql = f"""
+            SELECT 
+                s.skill_name,
+                s.skill_category,
+                ROUND(AVG(jrs.importance_weight) * 100, 0) as importance_pct,
+                ROUND(AVG(jrs.required_score), 0) as min_proficiency,
+                COUNT(DISTINCT jp.job_posting_id) as active_openings
+            FROM silver.job_required_skills jrs
+            JOIN silver.job_postings jp ON jrs.job_posting_id = jp.job_posting_id
+            JOIN silver.job_roles jr ON jp.job_role_id = jr.job_role_id
+            JOIN silver.skills s ON jrs.skill_id = s.skill_id
+            WHERE LOWER(jr.role_name) LIKE '%{role}%' OR LOWER(jr.role_family) LIKE '%{role}%'
+            GROUP BY s.skill_name, s.skill_category
+            ORDER BY active_openings DESC, importance_pct DESC
+            LIMIT 8;
+        """
+        df = con.execute(sql).df()
+        if not df.empty:
+            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+            rows = df.to_dict(orient="records")
+            top_skills = [r['skill_name'] for r in rows[:4]]
+            return {
+                "message_id": msg_id,
+                "role": "assistant",
+                "content": f"Core skills demanded by active campus recruiters for **{role.replace('_', ' ').title()}** roles (primary: {', '.join(top_skills)}):",
+                "status": "COMPLETED",
+                "created_at": now,
+                "attachment": {
+                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                    "query_text": sql,
+                    "source_object": "silver.job_required_skills",
+                    "recommended_visualization": "TABLE",
+                    "table_data": {
+                        "columns": cols,
+                        "rows": rows,
+                        "total_row_count": len(rows),
+                        "truncated": False
+                    }
+                }
+            }
+
     # 9. Recruiter / Hirer Queries
     recruiter_triggers = ["hirer", "hirers", "recruiter", "recruiters", "company", "companies", "who hired", "top hiring", "highest hiring"]
     if any(w in p for w in recruiter_triggers):
-        dept = extract_department(p)
-
         if "package" in p or "ctc" in p or "salary" in p or "highest paying" in p:
             sql = f"SELECT company_name, industry, average_ctc_lpa, highest_ctc_lpa, placements_count FROM semantic.genie_company_intelligence WHERE placements_count > 0 ORDER BY average_ctc_lpa DESC LIMIT {limit};"
             content = f"Top {limit} corporate recruiters offering the highest average compensation packages (CTC):"
@@ -677,12 +663,12 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 WHERE UPPER(s.department_code) = '{dept}'
                 GROUP BY c.company_name, c.industry
                 ORDER BY placements_count DESC
-                LIMIT {limit if m_limit else 5};
+                LIMIT {limit};
             """
             df_temp = con.execute(sql).df()
             rows_temp = df_temp.to_dict(orient="records")
-            full_dept_name = DEPT_NAMES.get(dept, dept)
-            if any(w in p for w in ["top hirer", "top recruiter", "best hirer", "best recruiter", "who hired the most"]) and not m_limit:
+            full_dept_name = DEPT_DISPLAY_NAMES.get(dept, dept)
+            if any(w in p for w in ["top hirer", "top recruiter", "best hirer", "best recruiter", "who hired the most"]):
                 top_name = rows_temp[0]['company_name'] if rows_temp else "Unknown"
                 top_count = rows_temp[0]['placements_count'] if rows_temp else 0
                 top_avg = rows_temp[0]['average_ctc_lpa'] if rows_temp else 0
@@ -748,61 +734,8 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 10. Role Specific Skill Requirements (e.g. "what skills are needed for data analyst?")
-    role_kw = None
-    if "analyst" in p: role_kw = "analyst"
-    elif "data engineer" in p: role_kw = "data_engineering"
-    elif "software engineer" in p: role_kw = "software_engineering"
-    elif "frontend" in p: role_kw = "frontend"
-    elif "backend" in p: role_kw = "backend"
-    elif "machine learning" in p or "ml" in p: role_kw = "machine_learning"
-
-    if role_kw and any(w in p for w in ["skill", "skills", "learn", "require", "demand", "needed"]):
-        sql = f"""
-            SELECT 
-                s.skill_name,
-                s.skill_category,
-                ROUND(AVG(jrs.importance_weight) * 100, 0) as importance_pct,
-                ROUND(AVG(jrs.required_score), 0) as min_proficiency,
-                COUNT(DISTINCT jp.job_posting_id) as active_openings
-            FROM silver.job_required_skills jrs
-            JOIN silver.job_postings jp ON jrs.job_posting_id = jp.job_posting_id
-            JOIN silver.job_roles jr ON jp.job_role_id = jr.job_role_id
-            JOIN silver.skills s ON jrs.skill_id = s.skill_id
-            WHERE LOWER(jr.role_name) LIKE '%{role_kw}%' OR LOWER(jr.role_family) LIKE '%{role_kw}%'
-            GROUP BY s.skill_name, s.skill_category
-            ORDER BY active_openings DESC, importance_pct DESC
-            LIMIT 8;
-        """
-        df = con.execute(sql).df()
-        if not df.empty:
-            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-            rows = df.to_dict(orient="records")
-            top_skills = [r['skill_name'] for r in rows[:4]]
-            return {
-                "message_id": msg_id,
-                "role": "assistant",
-                "content": f"Core skills demanded by active campus recruiters for **{role_kw.replace('_', ' ').title()}** roles (primary: {', '.join(top_skills)}):",
-                "status": "COMPLETED",
-                "created_at": now,
-                "attachment": {
-                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-                    "query_text": sql,
-                    "source_object": "silver.job_required_skills",
-                    "recommended_visualization": "TABLE",
-                    "table_data": {
-                        "columns": cols,
-                        "rows": rows,
-                        "total_row_count": len(rows),
-                        "truncated": False
-                    }
-                }
-            }
-
-    # 11. Candidate Discovery by CGPA Threshold (e.g. "find candidates with CGPA greater than 9")
-    m_cgpa = re.search(r"cgpa\s*(?:greater than|>|above|>=)?\s*(\d+(?:\.\d+)?)", p)
-    if m_cgpa and any(w in p for w in ["candidate", "candidates", "student", "students", "find"]):
-        cgpa_val = float(m_cgpa.group(1))
+    # 10. Student Discovery by CGPA or Readiness
+    if min_cgpa is not None:
         sql = f"""
             SELECT 
                 student_id, 
@@ -814,9 +747,9 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
                 offers_count, 
                 placement_status
             FROM semantic.genie_student_intelligence
-            WHERE cgpa >= {cgpa_val}
+            WHERE cgpa >= {min_cgpa}
             ORDER BY cgpa DESC, placement_readiness_score DESC
-            LIMIT 10;
+            LIMIT {limit};
         """
         df = con.execute(sql).df()
         cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
@@ -824,7 +757,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
         return {
             "message_id": msg_id,
             "role": "assistant",
-            "content": f"Found {len(rows)} high-performing eligible candidates with CGPA >= {cgpa_val}, ranked by CGPA and readiness score:",
+            "content": f"Found {len(rows)} high-performing eligible candidates with CGPA >= {min_cgpa}, ranked by CGPA and readiness score:",
             "status": "COMPLETED",
             "created_at": now,
             "attachment": {
@@ -841,7 +774,86 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             }
         }
 
-    # 12. General Skills Analytics (Top demanded / Supply-demand gap)
+    if any(w in p for w in ["high-readiness", "without offers", "candidate", "candidates", "find students"]):
+        if "data engineering" in p or "engineering" in p:
+            sql = f"SELECT student_id, full_name, department_code, cgpa, preferred_role, placement_readiness_score, readiness_band, offers_count, placement_status FROM semantic.genie_student_intelligence WHERE preferred_role = 'Data Engineering' ORDER BY placement_readiness_score DESC LIMIT {limit};"
+            content = "Strongest candidate recommendations for Data Engineering roles, ranked by placement readiness and verified skill profile:"
+        else:
+            sql = f"SELECT student_id, full_name, department_code, cgpa, preferred_role, placement_readiness_score, readiness_band, offers_count, placement_status FROM semantic.genie_student_intelligence WHERE offers_count = 0 AND placement_status IN ('ELIGIBLE', 'ACTIVE') ORDER BY placement_readiness_score DESC LIMIT {limit};"
+            content = "High-readiness eligible students currently without finalized placement offers:"
+
+        df = con.execute(sql).df()
+        cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+        rows = df.to_dict(orient="records")
+        return {
+            "message_id": msg_id,
+            "role": "assistant",
+            "content": content,
+            "status": "COMPLETED",
+            "created_at": now,
+            "attachment": {
+                "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                "query_text": sql,
+                "source_object": "semantic.genie_student_intelligence",
+                "recommended_visualization": "TABLE",
+                "table_data": {
+                    "columns": cols,
+                    "rows": rows,
+                    "total_row_count": len(rows),
+                    "truncated": False
+                }
+            }
+        }
+
+    # 11. Department Placement Rate & Trends
+    if "placement rate" in p or "placed in 2024" in p or "improved" in p or dept is not None:
+        if "improved" in p:
+            sql = "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, placement_rate_yoy, placement_rate_change_points FROM semantic.genie_department_performance WHERE graduation_year = 2024 AND placement_rate_change_points > 0 ORDER BY placement_rate_change_points DESC;"
+            content = "Departments showing positive year-over-year placement rate improvements in the 2024 cohort:"
+            rec_vis = "BAR"
+        else:
+            target_dept = dept or "CSE"
+            full_dept_name = DEPT_DISPLAY_NAMES.get(target_dept, target_dept)
+            sql = f"SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, average_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = '{target_dept}' AND graduation_year = 2024;"
+            df = con.execute(sql).df()
+            rows = df.to_dict(orient="records")
+            r = rows[0] if rows else {}
+            content = f"{full_dept_name} ({target_dept}) placement rate for the 2024 graduating cohort was recorded at **{r.get('placement_rate', 0)}%**, with **{int(r.get('placed_students', 0)):,}** placed students out of **{int(r.get('eligible_students', 0)):,}** eligible candidates and an average package of **₹{r.get('average_ctc_lpa', 0)} LPA**."
+            rec_vis = "KPI"
+            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+            kpis = [
+                {"label": "Placement Rate", "value": f"{r.get('placement_rate', 0)}%"},
+                {"label": "Placed Students", "value": f"{int(r.get('placed_students', 0)):,}"},
+                {"label": "Eligible Students", "value": f"{int(r.get('eligible_students', 0)):,}"},
+                {"label": "Average CTC", "value": f"₹{r.get('average_ctc_lpa', 0)} LPA"}
+            ]
+            return {
+                "message_id": msg_id,
+                "role": "assistant",
+                "content": content,
+                "status": "COMPLETED",
+                "created_at": now,
+                "attachment": {
+                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                    "query_text": sql,
+                    "source_object": "semantic.genie_department_performance",
+                    "recommended_visualization": rec_vis,
+                    "kpis": kpis,
+                    "table_data": {
+                        "columns": cols,
+                        "rows": rows,
+                        "total_row_count": len(rows),
+                        "truncated": False
+                    }
+                },
+                "follow_up_suggestions": [
+                    "Compare CSE and ECE placement rates",
+                    "Show placement rate across all departments",
+                    f"Which companies hired the most {target_dept} students?"
+                ]
+            }
+
+    # 12. General Skills Analytics
     if "demanded skills" in p or "skill" in p or "technologies" in p:
         if "low supply" in p or "gap" in p or "deficit" in p:
             sql = "SELECT skill_name, skill_category, demand_rank, job_posting_count, student_supply_ratio, market_demand_ratio, skill_supply_demand_gap FROM semantic.genie_skill_market WHERE high_demand_low_supply_flag = TRUE ORDER BY skill_supply_demand_gap DESC LIMIT 8;"
@@ -873,87 +885,7 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             }
         }
 
-    # 13. Student Discovery & Candidate Matching
-    if "high-readiness" in p or "without offers" in p or "candidate" in p or "candidates" in p or "find" in p:
-        if "data engineering" in p or "engineering" in p:
-            sql = "SELECT student_id, full_name, department_code, cgpa, preferred_role, placement_readiness_score, readiness_band, offers_count, placement_status FROM semantic.genie_student_intelligence WHERE preferred_role = 'Data Engineering' ORDER BY placement_readiness_score DESC LIMIT 10;"
-            content = "Strongest candidate recommendations for Data Engineering roles, ranked by placement readiness and verified skill profile:"
-        else:
-            sql = "SELECT student_id, full_name, department_code, cgpa, preferred_role, placement_readiness_score, readiness_band, offers_count, placement_status FROM semantic.genie_student_intelligence WHERE offers_count = 0 AND placement_status IN ('ELIGIBLE', 'ACTIVE') ORDER BY placement_readiness_score DESC LIMIT 10;"
-            content = "High-readiness eligible students currently without finalized placement offers:"
-
-        df = con.execute(sql).df()
-        cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-        rows = df.to_dict(orient="records")
-        return {
-            "message_id": msg_id,
-            "role": "assistant",
-            "content": content,
-            "status": "COMPLETED",
-            "created_at": now,
-            "attachment": {
-                "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-                "query_text": sql,
-                "source_object": "semantic.genie_student_intelligence",
-                "recommended_visualization": "TABLE",
-                "table_data": {
-                    "columns": cols,
-                    "rows": rows,
-                    "total_row_count": len(rows),
-                    "truncated": False
-                }
-            }
-        }
-
-    # 14. Department Placement Rate & Trends
-    if "placement rate" in p or "placed in 2024" in p or "improved" in p or "department" in p or "branch" in p:
-        if "improved" in p:
-            sql = "SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, placement_rate_yoy, placement_rate_change_points FROM semantic.genie_department_performance WHERE graduation_year = 2024 AND placement_rate_change_points > 0 ORDER BY placement_rate_change_points DESC;"
-            content = "Departments showing positive year-over-year placement rate improvements in the 2024 cohort:"
-            rec_vis = "BAR"
-        else:
-            dept = extract_department(p) or "CSE"
-            full_dept_name = DEPT_NAMES.get(dept, dept)
-            sql = f"SELECT department_code, graduation_year, total_students, eligible_students, placed_students, placement_rate, average_ctc_lpa FROM semantic.genie_department_performance WHERE department_code = '{dept}' AND graduation_year = 2024;"
-            df = con.execute(sql).df()
-            rows = df.to_dict(orient="records")
-            r = rows[0] if rows else {}
-            content = f"{full_dept_name} ({dept}) placement rate for the 2024 graduating cohort was recorded at **{r.get('placement_rate', 0)}%**, with **{int(r.get('placed_students', 0)):,}** placed students out of **{int(r.get('eligible_students', 0)):,}** eligible candidates and an average package of **₹{r.get('average_ctc_lpa', 0)} LPA**."
-            rec_vis = "KPI"
-            cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
-            kpis = [
-                {"label": "Placement Rate", "value": f"{r.get('placement_rate', 0)}%"},
-                {"label": "Placed Students", "value": f"{int(r.get('placed_students', 0)):,}"},
-                {"label": "Eligible Students", "value": f"{int(r.get('eligible_students', 0)):,}"},
-                {"label": "Average CTC", "value": f"₹{r.get('average_ctc_lpa', 0)} LPA"}
-            ]
-            return {
-                "message_id": msg_id,
-                "role": "assistant",
-                "content": content,
-                "status": "COMPLETED",
-                "created_at": now,
-                "attachment": {
-                    "query_id": f"qry_{uuid.uuid4().hex[:8]}",
-                    "query_text": sql,
-                    "source_object": "semantic.genie_department_performance",
-                    "recommended_visualization": rec_vis,
-                    "kpis": kpis,
-                    "table_data": {
-                        "columns": cols,
-                        "rows": rows,
-                        "total_row_count": len(rows),
-                        "truncated": False
-                    }
-                },
-                "follow_up_suggestions": [
-                    "Compare CSE and ECE placement rates",
-                    "Show placement rate across all departments",
-                    f"Which companies hired the most {dept} students?"
-                ]
-            }
-
-    # 15. Polite Analytical Fallback (Never dump arbitrary department tables)
+    # 13. Polite Analytical Fallback
     return {
         "message_id": msg_id,
         "role": "assistant",
