@@ -299,9 +299,80 @@ def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[
             ]
         }
 
-    # 3. Company Specific Inquiries (e.g. "how many students are placed in Google?", "Google placement stats")
-    if matched_comp and any(w in p for w in ["how many", "placed in", "hired by", "placements in", "stats", "profile", "offer"]):
+    # 3. Company Specific Inquiries (e.g. "how many students are placed in Google?", "how many people google hired from computer science")
+    if matched_comp and any(w in p for w in ["how many", "placed in", "hired by", "hired from", "placements in", "stats", "profile", "offer"]):
         comp_id, comp_name = matched_comp
+        dept = extract_department(p)
+
+        if dept:
+            full_dept_name = DEPT_NAMES.get(dept, dept)
+            sql = f"""
+                SELECT 
+                    c.company_name,
+                    s.department_code,
+                    COUNT(p.placement_id) as placements_count,
+                    ROUND(AVG(p.ctc_lpa), 2) as average_ctc_lpa,
+                    ROUND(MAX(p.ctc_lpa), 2) as highest_ctc_lpa
+                FROM silver.placements p
+                JOIN semantic.genie_student_intelligence s ON p.student_id = s.student_id
+                JOIN silver.companies c ON p.company_id = c.company_id
+                WHERE c.company_id = '{comp_id}' AND UPPER(s.department_code) = '{dept}'
+                GROUP BY c.company_name, s.department_code;
+            """
+            df = con.execute(sql).df()
+            total_campus_hires = con.execute(f"SELECT placements_count FROM semantic.genie_company_intelligence WHERE company_id = '{comp_id}';").fetchone()
+            tot = total_campus_hires[0] if total_campus_hires else 0
+
+            if not df.empty:
+                rows = df.to_dict(orient="records")
+                r = rows[0]
+                cols = [{"name": c, "type_text": "STRING", "display_name": column_to_display_name(c)} for c in df.columns]
+                kpis = [
+                    {"label": f"{dept} Placements", "value": f"{r.get('placements_count', 0)}"},
+                    {"label": f"Average CTC ({dept})", "value": f"₹{r.get('average_ctc_lpa', 0)} LPA"},
+                    {"label": f"Highest CTC ({dept})", "value": f"₹{r.get('highest_ctc_lpa', 0)} LPA"},
+                    {"label": "Campus-Wide Total", "value": f"{tot} Placements"}
+                ]
+                content = (
+                    f"**{comp_name}** hired **{r.get('placements_count', 0)}** students from **{full_dept_name} ({dept})** "
+                    f"with an average compensation of **₹{r.get('average_ctc_lpa', 0)} LPA** (highest offer: **₹{r.get('highest_ctc_lpa', 0)} LPA**). "
+                    f"Across the entire institution (all departments), {comp_name} recruited **{tot}** students."
+                )
+                return {
+                    "message_id": msg_id,
+                    "role": "assistant",
+                    "content": content,
+                    "status": "COMPLETED",
+                    "created_at": now,
+                    "attachment": {
+                        "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                        "query_text": sql,
+                        "source_object": f"silver.placements (filtered by {comp_name} and {dept})",
+                        "recommended_visualization": "KPI",
+                        "kpis": kpis,
+                        "table_data": {
+                            "columns": cols,
+                            "rows": rows,
+                            "total_row_count": len(rows),
+                            "truncated": False
+                        }
+                    },
+                    "follow_up_suggestions": [
+                        f"What skills does {comp_name} require?",
+                        f"Which companies hired more {dept} students than {comp_name}?",
+                        f"Show all department hires for {comp_name}"
+                    ]
+                }
+            else:
+                return {
+                    "message_id": msg_id,
+                    "role": "assistant",
+                    "content": f"**{comp_name}** did not record any finalized student placements from **{full_dept_name} ({dept})** in the current season (out of {tot} campus-wide hires).",
+                    "status": "COMPLETED",
+                    "created_at": now
+                }
+
+        # Company-wide across all departments
         sql = f"""
             SELECT 
                 company_name, 
