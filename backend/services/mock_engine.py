@@ -60,9 +60,22 @@ def column_to_display_name(col: str) -> str:
     return mapping.get(col, col.replace("_", " ").title())
 
 def process_mock_query(prompt: str, conv_history: List[Dict[str, Any]]) -> Dict[str, Any]:
+    from backend.services.guardrails import check_guardrails
     p = prompt.strip().lower()
     msg_id = f"msg_{uuid.uuid4().hex[:12]}"
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    # 0. Safety & Domain Guardrails
+    guard = check_guardrails(prompt)
+    if not guard.is_allowed:
+        return {
+            "message_id": msg_id,
+            "role": "assistant",
+            "content": guard.response_text,
+            "status": "COMPLETED",
+            "created_at": now,
+            "follow_up_suggestions": guard.suggestions
+        }
 
     con = get_mock_db()
 

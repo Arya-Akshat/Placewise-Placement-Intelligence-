@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 # Database & Genie Client
 from backend.db import database as db
 from backend.services.databricks_genie import DatabricksGenieClient, DatabricksGenieError
+from backend.services.guardrails import check_guardrails
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("PlacewiseAPI")
@@ -248,6 +249,20 @@ async def start_conversation(
     if req.client_request_id:
         db.record_idempotency(req.client_request_id, placewise_cid, user_msg_id)
 
+    # Guardrail Check for Content Safety & Domain Relevance
+    guard = check_guardrails(req.content)
+    if not guard.is_allowed:
+        asst_msg = {
+            "message_id": f"msg_asst_{uuid.uuid4().hex[:12]}",
+            "role": "assistant",
+            "content": guard.response_text,
+            "status": "COMPLETED",
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "follow_up_suggestions": guard.suggestions
+        }
+        db.save_message(placewise_cid, asst_msg)
+        return db.get_conversation_by_id(placewise_cid)
+
     # Route to Databricks Genie or Mock Fallback
     use_mock = os.environ.get("USE_MOCK_BACKEND", "").lower() == "true"
     if not use_mock and genie_client.is_configured:
@@ -325,6 +340,20 @@ async def send_message(
         db.save_message(conversation_id, user_msg)
         if req.client_request_id:
             db.record_idempotency(req.client_request_id, conversation_id, user_msg_id)
+
+        # Guardrail Check for Content Safety & Domain Relevance
+        guard = check_guardrails(req.content)
+        if not guard.is_allowed:
+            asst_msg = {
+                "message_id": f"msg_asst_{uuid.uuid4().hex[:12]}",
+                "role": "assistant",
+                "content": guard.response_text,
+                "status": "COMPLETED",
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "follow_up_suggestions": guard.suggestions
+            }
+            db.save_message(conversation_id, asst_msg)
+            return asst_msg
 
         use_mock = os.environ.get("USE_MOCK_BACKEND", "").lower() == "true"
         genie_cid = conv.get("genie_conversation_id")
