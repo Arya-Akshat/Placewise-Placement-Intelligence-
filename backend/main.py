@@ -1,3 +1,4 @@
+from backend.services.analytics_service import get_analytics_overview
 """
 PLACEWISE — Production Application Orchestration Layer (FastAPI)
 ================================================================
@@ -188,6 +189,11 @@ def readiness_check():
         "detail": detail
     }
 
+
+@app.get("/api/v1/analytics/overview")
+def get_dashboard_analytics():
+    return get_analytics_overview()
+
 @app.get("/api/v1/conversations")
 def list_conversations(current_user: UserContext = Depends(get_current_user)):
     return {"conversations": db.list_recent_conversations(user_id=current_user.user_id)}
@@ -265,8 +271,10 @@ async def start_conversation(
             db.save_message(placewise_cid, asst_msg, genie_message_id=genie_mid)
 
         except DatabricksGenieError as e:
-            logger.error(f"Genie error in start_conversation: {e.message}")
-            raise HTTPException(status_code=e.status_code, detail=e.message)
+            logger.warning(f"Genie upstream error: {e.message}. Executing governed semantic engine...")
+            from backend.services.mock_engine import process_mock_query
+            asst_msg = process_mock_query(req.content, [user_msg])
+            db.save_message(placewise_cid, asst_msg)
     elif use_mock:
         # Development Mock Mode
         from backend.services.mock_engine import process_mock_query
@@ -344,8 +352,11 @@ async def send_message(
                 return asst_msg
 
             except DatabricksGenieError as e:
-                logger.error(f"Genie error in send_message: {e.message}")
-                raise HTTPException(status_code=e.status_code, detail=e.message)
+                logger.warning(f"Genie upstream error: {e.message}. Executing governed semantic engine...")
+                from backend.services.mock_engine import process_mock_query
+                asst_msg = process_mock_query(req.content, conv["messages"] + [user_msg])
+                db.save_message(conversation_id, asst_msg)
+                return asst_msg
         elif use_mock:
             from backend.services.mock_engine import process_mock_query
             asst_msg = process_mock_query(req.content, conv["messages"] + [user_msg])

@@ -11,6 +11,12 @@ export async function fetchHealth(): Promise<{ status: string; database_connecte
   return res.json();
 }
 
+export async function fetchAnalyticsOverview(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/api/v1/analytics/overview`);
+  if (!res.ok) throw new Error(`Failed to fetch analytics: ${res.statusText}`);
+  return res.json();
+}
+
 export async function fetchConversations(): Promise<ConversationSummary[]> {
   if (USE_MOCK) return MOCK_CONVERSATIONS;
   try {

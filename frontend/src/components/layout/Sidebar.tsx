@@ -12,7 +12,9 @@ export const Sidebar: React.FC = () => {
     isSidebarOpen,
     toggleSidebar,
     submitMessage,
-    isSending
+    isSending,
+    currentView,
+    setCurrentView
   } = useChat();
 
   const domains = [
@@ -46,13 +48,33 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
 
-          <button
-            onClick={newConversation}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-md transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Conversation</span>
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-semibold text-xs shadow-md transition ${
+                currentView === 'dashboard'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700'
+              }`}
+            >
+              <span>📊 Analytics Dashboard</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentView('chat');
+                newConversation();
+              }}
+              className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-medium text-xs transition ${
+                currentView === 'chat'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Conversation</span>
+            </button>
+          </div>
 
           {/* Quick Analysis Domains */}
           <div className="mt-5">
@@ -66,7 +88,10 @@ export const Sidebar: React.FC = () => {
                   <button
                     key={i}
                     disabled={isSending}
-                    onClick={() => submitMessage(d.prompt)}
+                    onClick={() => {
+                      setCurrentView('chat');
+                      submitMessage(d.prompt);
+                    }}
                     className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-100 hover:bg-slate-900 transition text-left"
                   >
                     <Icon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -89,7 +114,10 @@ export const Sidebar: React.FC = () => {
                 conversations.map(c => (
                   <button
                     key={c.conversation_id}
-                    onClick={() => selectConversation(c.conversation_id)}
+                    onClick={() => {
+                      setCurrentView('chat');
+                      selectConversation(c.conversation_id);
+                    }}
                     className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs text-left transition ${
                       currentConversationId === c.conversation_id
                         ? 'bg-slate-800 text-emerald-300 font-semibold'

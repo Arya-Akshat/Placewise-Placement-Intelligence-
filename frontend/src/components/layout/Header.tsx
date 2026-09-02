@@ -3,7 +3,7 @@ import { useChat } from '../../context/ChatContext';
 import { Menu, GraduationCap, ShieldCheck } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { toggleSidebar } = useChat();
+  const { toggleSidebar, currentView, setCurrentView } = useChat();
 
   return (
     <header className="h-14 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-4 flex items-center justify-between sticky top-0 z-20">
@@ -24,6 +24,30 @@ export const Header: React.FC = () => {
             <span className="text-[10px] text-slate-400 font-medium">Placement Intelligence</span>
           </div>
         </div>
+      </div>
+
+      {/* Center Navigation Tabs */}
+      <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
+        <button
+          onClick={() => setCurrentView('dashboard')}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition ${
+            currentView === 'dashboard'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <span>📊 Dashboard</span>
+        </button>
+        <button
+          onClick={() => setCurrentView('chat')}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition ${
+            currentView === 'chat'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <span>💬 Genie Chat</span>
+        </button>
       </div>
 
       <div className="flex items-center gap-3">

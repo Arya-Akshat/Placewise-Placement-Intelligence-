@@ -3,6 +3,8 @@ import { Message, ConversationSummary, ApiError } from '../types';
 import * as api from '../services/placewiseApi';
 
 interface ChatContextType {
+  currentView: 'chat' | 'dashboard';
+  setCurrentView: (view: 'chat' | 'dashboard') => void;
   currentConversationId: string | null;
   conversations: ConversationSummary[];
   messages: Message[];
@@ -22,6 +24,7 @@ interface ChatContextType {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentView, setCurrentView] = useState<'chat' | 'dashboard'>('dashboard');
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -131,6 +134,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <ChatContext.Provider
       value={{
+        currentView,
+        setCurrentView,
         currentConversationId,
         conversations,
         messages,
